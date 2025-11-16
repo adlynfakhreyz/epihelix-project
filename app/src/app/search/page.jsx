@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Sparkles } from 'lucide-react'
 import EntityCard from '../../components/EntityCard/EntityCard'
@@ -20,7 +20,7 @@ const placeholders = [
   'vaccine development',
 ]
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { results, loading, executeSearch } = useSearch()
@@ -307,5 +307,17 @@ export default function SearchPage() {
         </AnimatePresence>
       </div>
     </main>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
   )
 }
