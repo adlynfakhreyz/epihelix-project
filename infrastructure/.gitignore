@@ -1,0 +1,12 @@
+# Docker volumes
+volumes/
+neo4j/data/
+fuseki/data/
+
+# Docker env files
+.env.docker
+docker.env
+
+# Logs
+logs/
+*.log

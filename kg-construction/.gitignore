@@ -1,0 +1,37 @@
+# Large data files (don't commit to git)
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.xml
+data/processed/*.ttl
+data/processed/*.nt
+data/processed/*.rdf
+data/processed/*.jsonld
+data/external/*.csv
+data/external/*.json
+
+# But keep the directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.pytest_cache/
+
+# RDF/KG specific
+*.log
+*.lock
+.fuseki/
+.jena/
+neo4j/data/
+neo4j/logs/
