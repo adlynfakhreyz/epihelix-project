@@ -1,0 +1,24 @@
+# Neo4j and Graph Database
+neo4j==5.15.0
+py2neo==2021.2.4
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Progress Bars
+tqdm==4.66.1
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Date/Time Handling
+python-dateutil==2.8.2
+
+# Logging
+colorlog==6.8.0
+
+# SPARQL and External Knowledge Bases
+SPARQLWrapper==2.0.0
+rdflib==7.0.0
+requests==2.31.0
