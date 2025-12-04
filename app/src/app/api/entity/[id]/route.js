@@ -1,51 +1,40 @@
 import { NextResponse } from 'next/server'
 
 /**
- * Next.js API Route - Search Middleware
+ * Next.js API Route - Entity Details Middleware
  * 
- * Proxies search requests to FastAPI backend with:
- * - Request validation
- * - Error handling
- * - Response transformation
- * - Logging (development)
+ * Proxies entity detail requests to FastAPI backend
  */
 
 const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
-export async function GET(request) {
+export async function GET(request, { params }) {
   try {
+    const { id } = params
     const { searchParams } = new URL(request.url)
-    const q = searchParams.get('q')
-    const limit = searchParams.get('limit') || '10'
-    const semantic = searchParams.get('semantic') || 'false'
+    const includeRelated = searchParams.get('include_related') === 'true'
 
-    // Validation
-    if (!q || q.trim().length === 0) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Query parameter "q" is required' },
+        { error: 'Entity ID is required' },
         { status: 400 }
       )
     }
 
     // Build backend URL
-    const backendUrl = new URL(`${FASTAPI_URL}/search`)
-    backendUrl.searchParams.set('q', q)
-    backendUrl.searchParams.set('limit', limit)
-    if (semantic === 'true') {
-      backendUrl.searchParams.set('semantic', 'true')
+    const backendUrl = new URL(`${FASTAPI_URL}/entity/${id}`)
+    if (includeRelated) {
+      backendUrl.searchParams.set('include_related', 'true')
     }
 
-    // Log in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('[API] Search:', { q, limit, semantic })
+      console.log('[API] Get entity:', id, { includeRelated })
     }
 
     // Call FastAPI backend
     const response = await fetch(backendUrl.toString(), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     })
 
     if (!response.ok) {
@@ -54,7 +43,7 @@ export async function GET(request) {
       
       return NextResponse.json(
         { 
-          error: errorData.detail || 'Search failed',
+          error: errorData.detail || 'Failed to fetch entity',
           status: response.status 
         },
         { status: response.status }
@@ -63,15 +52,14 @@ export async function GET(request) {
 
     const data = await response.json()
     
-    // Log success in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('[API] Search results:', data.length, 'items')
+      console.log('[API] Entity fetched:', data.id)
     }
 
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('[API] Search error:', error)
+    console.error('[API] Entity error:', error)
     
     return NextResponse.json(
       { 

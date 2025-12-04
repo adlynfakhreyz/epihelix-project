@@ -4,11 +4,11 @@ import React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import InfoBox from '../../../components/InfoBox/InfoBox'
-import useEntity from '../../../hooks/useEntity'
+import { useEntity } from '../../../hooks/useEntity'
 
 export default function EntityPage() {
   const params = useParams()
-  const { entity, loading, error } = useEntity(params.id)
+  const { data: entity, isLoading: loading, error } = useEntity(params.id)
 
   return (
     <main className="flex-1 py-8 md:py-12">

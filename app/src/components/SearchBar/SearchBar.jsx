@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { debounce } from '../../lib/utils'
-import { search } from '../../lib/api'
+import { useSearch } from '../../hooks/useSearch'
 import { slideDown, listItem } from '../../lib/animations'
 
 /**
@@ -27,32 +27,24 @@ export default function SearchBar({
   semantic = false,
 }) {
   const [query, setQuery] = useState(value)
-  const [suggestions, setSuggestions] = useState([])
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [loading, setLoading] = useState(false)
 
-  // Debounced search
+  // Use React Query hook
+  const { data: suggestions = [], isLoading: loading } = useSearch(debouncedQuery, {
+    limit: 5,
+    semantic
+  })
+
+  // Debounce query
   useEffect(() => {
-    const fetchSuggestions = debounce(async (q) => {
-      if (!q.trim()) {
-        setSuggestions([])
-        return
-      }
-
-      setLoading(true)
-      try {
-        const results = await search(q, { limit: 5, semantic })
-        setSuggestions(results)
-        setShowSuggestions(true)
-      } catch (error) {
-        console.error('Search error:', error)
-      } finally {
-        setLoading(false)
-      }
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query)
+      setShowSuggestions(query.trim().length > 0)
     }, 300)
 
-    fetchSuggestions(query)
-  }, [query, semantic])
+    return () => clearTimeout(handler)
+  }, [query])
 
   function handleChange(e) {
     const val = e.target.value

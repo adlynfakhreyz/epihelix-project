@@ -7,50 +7,42 @@ import { Search, X, Loader2, TrendingUp, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { debounce } from '@/lib/utils'
-import { search } from '@/lib/api'
+import { useSearch } from '@/hooks/useSearch'
 
 /**
  * Global search modal component with floating UI
  */
 export function GlobalSearch({ isOpen, onClose }) {
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [semantic, setSemantic] = useState(false)
-  const [suggestions, setSuggestions] = useState([])
-  const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef(null)
   const router = useRouter()
+
+  // Use React Query hook
+  const { data: suggestions = [], isLoading: loading } = useSearch(debouncedQuery, {
+    limit: 8,
+    semantic
+  })
 
   // Focus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100)
       setQuery('')
-      setSuggestions([])
+      setDebouncedQuery('')
     }
   }, [isOpen])
 
-  // Debounced search
+  // Debounce query
   useEffect(() => {
-    const fetchSuggestions = debounce(async (q) => {
-      if (!q.trim()) {
-        setSuggestions([])
-        return
-      }
-
-      setLoading(true)
-      try {
-        const results = await search(q, { limit: 8 })
-        setSuggestions(results)
-        setSelectedIndex(0)
-      } catch (error) {
-        console.error('Search error:', error)
-      } finally {
-        setLoading(false)
-      }
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query)
+      setSelectedIndex(0)
     }, 300)
 
-    fetchSuggestions(query)
+    return () => clearTimeout(handler)
   }, [query])
 
   // Handle keyboard navigation

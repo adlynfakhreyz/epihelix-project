@@ -6,8 +6,9 @@ import { Search, Sparkles } from 'lucide-react'
 import EntityCard from '../../components/EntityCard/EntityCard'
 import KnowledgePanel from '../../components/KnowledgePanel/KnowledgePanel'
 import ResultSummary from '../../components/ResultSummary/ResultSummary'
-import useSearch from '../../hooks/useSearch'
-import { generateSummary, getKnowledgePanel } from '../../lib/api'
+import { useSearch } from '../../hooks/useSearch'
+import { useSummary } from '../../hooks/useSummary'
+import { useEntity } from '../../hooks/useEntity'
 import { motion, AnimatePresence } from 'framer-motion'
 import { staggerChildren, listItem } from '../../lib/animations'
 
@@ -23,15 +24,17 @@ const placeholders = [
 function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { results, loading, executeSearch } = useSearch()
   const [semantic, setSemantic] = useState(false)
   const [query, setQuery] = useState('')
-  const [hasResults, setHasResults] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   
-  // Top result data
-  const [topSummary, setTopSummary] = useState(null)
-  const [topKnowledgePanel, setTopKnowledgePanel] = useState(null)
-  const [loadingSummary, setLoadingSummary] = useState(false)
+  // React Query hooks
+  const { data: results = [], isLoading: loading } = useSearch(debouncedQuery, { semantic, enabled: debouncedQuery.length > 0 })
+  const topResult = results[0]
+  const summaryMutation = useSummary()
+  const { data: knowledgePanelData } = useEntity(topResult?.id, { enabled: Boolean(topResult?.id) })
+  
+  const hasResults = results.length > 0
 
   // Typewriter animation
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
@@ -71,46 +74,33 @@ function SearchPageContent() {
     const q = searchParams.get('q')
     if (q) {
       setQuery(q)
-      executeSearch(q, { semantic })
+      setDebouncedQuery(q)
     }
   }, [searchParams])
 
-  // Update hasResults when results change
+  // Debounce query for search
   useEffect(() => {
-    setHasResults(results.length > 0)
-  }, [results])
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [query])
 
-  // Load summary and knowledge panel for top result
+  // Auto-generate summary for top result
   useEffect(() => {
-    if (results.length > 0 && query) {
-      const topResult = results[0]
-      
-      // Load summary
-      setLoadingSummary(true)
-      generateSummary(topResult.id, query, topResult.type)
-        .then((data) => {
-          setTopSummary(data.summary)
-          setLoadingSummary(false)
-        })
-        .catch(() => {
-          setLoadingSummary(false)
-        })
-
-      // Load knowledge panel
-      getKnowledgePanel(topResult.id)
-        .then((data) => {
-          setTopKnowledgePanel(data)
-        })
-    } else {
-      setTopSummary(null)
-      setTopKnowledgePanel(null)
+    if (topResult && query) {
+      summaryMutation.mutate({
+        entityId: topResult.id,
+        query: query,
+        includeRelations: false
+      })
     }
-  }, [results, query])
+  }, [topResult?.id, query])
 
   function handleSearch(e) {
     e.preventDefault()
     if (query.trim()) {
-      executeSearch(query, { semantic })
+      setDebouncedQuery(query.trim())
       // Update URL with query
       router.push(`/search?q=${encodeURIComponent(query.trim())}`, { scroll: false })
     }
@@ -248,8 +238,8 @@ function SearchPageContent() {
                       <ResultSummary
                         result={results[0]}
                         query={query}
-                        summary={topSummary}
-                        loading={loadingSummary}
+                        summary={summaryMutation.data?.summary}
+                        loading={summaryMutation.isPending}
                       />
                     </div>
                   )}
@@ -276,9 +266,9 @@ function SearchPageContent() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
                 >
-                  {topKnowledgePanel && (
+                  {knowledgePanelData && (
                     <div className="lg:sticky lg:top-6">
-                      <KnowledgePanel entity={topKnowledgePanel} />
+                      <KnowledgePanel entity={knowledgePanelData} />
                     </div>
                   )}
                 </motion.aside>
