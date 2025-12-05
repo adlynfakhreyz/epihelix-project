@@ -106,17 +106,6 @@ class Vaccine(BaseModel):
     description: Optional[str] = None
 
 
-class PandemicEvent(BaseModel):
-    """Historical pandemic event (from DBpedia)"""
-    dbpediaUri: str
-    name: str
-    abstract: Optional[str] = None
-    startDate: Optional[str] = None
-    deathToll: Optional[str] = None
-    location: Optional[str] = None
-    source: Optional[str] = "DBpedia"
-
-
 # ============================================================================
 # API Request/Response Models
 # ============================================================================
@@ -162,7 +151,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    reply: str
+    message: str
     sources: Optional[List[Dict[str, Any]]] = None
     session_id: Optional[str] = None
 

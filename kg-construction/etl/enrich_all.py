@@ -91,7 +91,6 @@ def main():
         logger.info("✓ Raw HPD dataset (disease cases, deaths, vaccination coverage)")
         logger.info("✓ Disease metadata from Wikidata (symptoms, treatments, classifications)")
         logger.info("✓ Country demographics from Wikidata (population, GDP, coordinates, borders)")
-        logger.info("✓ Health organizations (WHO, CDC, ECDC)")
         logger.info("  Wikipedia abstracts from DBpedia (if available)")
         logger.info("  Historical pandemic events from DBpedia (if available)")
         logger.info("")

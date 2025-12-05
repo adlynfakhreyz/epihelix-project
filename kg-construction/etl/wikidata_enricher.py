@@ -435,79 +435,6 @@ class WikidataEnricher:
 
         logger.info(f"✓ Added {len(organizations)} health organizations")
 
-    def add_vaccines(self):
-        """Add COVID-19 vaccines to the knowledge graph"""
-        logger.info("Adding COVID-19 vaccines from Wikidata...")
-
-        vaccines = [
-            {'wikidata_id': 'Q98158256', 'name': 'Pfizer-BioNTech COVID-19 vaccine'},
-            {'wikidata_id': 'Q98109286', 'name': 'Moderna COVID-19 vaccine'},
-            {'wikidata_id': 'Q98244340', 'name': 'Oxford-AstraZeneca COVID-19 vaccine'},
-            {'wikidata_id': 'Q98843566', 'name': 'Johnson & Johnson COVID-19 vaccine'},
-            {'wikidata_id': 'Q98246648', 'name': 'Sinovac CoronaVac'}
-        ]
-
-        for vaccine in vaccines:
-            # Query with explicit rdfs:label instead of relying on label service
-            query = f"""
-            SELECT ?vaccine ?vaccineName ?manufacturer ?manufacturerName
-                   ?approvalDate ?efficacy ?description
-            WHERE {{
-              BIND(wd:{vaccine['wikidata_id']} AS ?vaccine)
-
-              # Get label explicitly (more reliable than SERVICE wikibase:label)
-              OPTIONAL {{
-                ?vaccine rdfs:label ?vaccineName .
-                FILTER(LANG(?vaccineName) = "en")
-              }}
-
-              OPTIONAL {{
-                ?vaccine wdt:P176 ?manufacturer .
-                ?manufacturer rdfs:label ?manufacturerName .
-                FILTER(LANG(?manufacturerName) = "en")
-              }}  # Manufacturer
-              OPTIONAL {{ ?vaccine wdt:P571 ?approvalDate . }}  # Inception/approval
-              OPTIONAL {{
-                ?vaccine schema:description ?description .
-                FILTER(LANG(?description) = "en")
-              }}
-            }}
-            """
-
-            results = self._execute_sparql(query)
-            if results and results['results']['bindings']:
-                data = results['results']['bindings'][0]
-
-                create_query = """
-                MERGE (v:Vaccine {wikidataId: $wikidata_id})
-                SET v.name = $name,
-                    v.manufacturer = $manufacturer,
-                    v.approvalDate = date($approval_date),
-                    v.description = $description
-                """
-
-                params = {
-                    'wikidata_id': vaccine['wikidata_id'],
-                    'name': data.get('vaccineName', {}).get('value', vaccine['name']),
-                    'manufacturer': data.get('manufacturerName', {}).get('value'),
-                    'approval_date': data.get('approvalDate', {}).get('value', '').split('T')[0] if 'approvalDate' in data else None,
-                    'description': data.get('description', {}).get('value')
-                }
-
-                self.conn.execute_write(create_query, params)
-                logger.info(f"✓ Added vaccine: {params['name']}")
-
-                # Create relationship to COVID-19
-                rel_query = """
-                MATCH (v:Vaccine {wikidataId: $wikidata_id})
-                MATCH (d:Disease {id: 'covid19'})
-                MERGE (v)-[:PREVENTS]->(d)
-                """
-                self.conn.execute_write(rel_query, {'wikidata_id': vaccine['wikidata_id']})
-
-            time.sleep(1)  # Rate limiting
-
-        logger.info(f"✓ Added {len(vaccines)} vaccines")
 
     def enrich_disease_by_id(self, disease_id: str, wikidata_id: str):
         """
@@ -715,8 +642,9 @@ class WikidataEnricher:
             self.enrich_disease_covid19()
             logger.info("")
 
-            self.add_health_organizations()
-            logger.info("")
+            # Organization enrichment removed
+            # self.add_health_organizations()
+            # logger.info("")
 
             # Vaccine enrichment skipped - not needed for historical pandemic analysis
             # self.add_vaccines()

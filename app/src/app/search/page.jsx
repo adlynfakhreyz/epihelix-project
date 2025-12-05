@@ -246,8 +246,8 @@ function SearchPageContent() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
                 >
-                  {/* Top Result Summary */}
-                  {results[0] && (
+                  {/* Top Result Summary - Only show on first page */}
+                  {results[0] && page === 1 && (
                     <div className="mb-6">
                       <ResultSummary
                         result={results[0]}

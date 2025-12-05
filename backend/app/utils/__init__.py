@@ -9,6 +9,7 @@ Pure utility functions and classes (no business logic):
 from .embedder import BaseEmbedder, KaggleEmbedder
 from .reranker import BaseReranker, KaggleReranker
 from .llm import BaseLLM, KaggleLLM
+from .llm_groq import GroqLLM
 
 __all__ = [
     "BaseEmbedder",
@@ -17,4 +18,5 @@ __all__ = [
     "KaggleReranker",
     "BaseLLM",
     "KaggleLLM",
+    "GroqLLM",
 ]

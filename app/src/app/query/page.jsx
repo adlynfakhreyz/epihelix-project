@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Trash2, Database, AlertCircle } from 'lucide-react'
+import { Play, Trash2, Database, AlertCircle, History, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useQueryConsole } from '@/hooks/useQuery'
 
 export default function QueryPage() {
   const [query, setQuery] = useState('MATCH (d:Disease) RETURN d.id, d.name, d.eradicated LIMIT 10')
+  const [showHistory, setShowHistory] = useState(false)
   
   const {
     execute,
@@ -26,6 +27,21 @@ export default function QueryPage() {
 
   function handleClear() {
     setQuery('')
+  }
+
+  function loadFromHistory(queryText) {
+    setQuery(queryText)
+    setShowHistory(false)
+  }
+
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp)
+    return date.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    })
   }
 
   return (
@@ -102,15 +118,74 @@ export default function QueryPage() {
             Clear
           </Button>
           {history.length > 0 && (
-            <Button
-              onClick={clearHistory}
-              variant="ghost"
-              size="lg"
-            >
-              Clear History ({history.length})
-            </Button>
+            <>
+              <Button
+                onClick={() => setShowHistory(!showHistory)}
+                variant="outline"
+                size="lg"
+                className="border-cyan-500/50 hover:bg-cyan-500/10"
+              >
+                <History className="h-4 w-4 mr-2" />
+                History ({history.length})
+              </Button>
+              <Button
+                onClick={clearHistory}
+                variant="ghost"
+                size="lg"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear History
+              </Button>
+            </>
           )}
         </motion.div>
+
+        {/* Query History Panel */}
+        <AnimatePresence>
+          {showHistory && history.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-card/50 backdrop-blur-md border border-border/50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <History className="h-5 w-5 text-cyan-400" />
+                  Query History
+                </h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {[...history].reverse().map((item, idx) => (
+                    <motion.div
+                      key={history.length - idx - 1}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="p-3 bg-muted/20 hover:bg-muted/40 rounded-lg border border-border/30 
+                               hover:border-cyan-500/50 cursor-pointer transition-all group"
+                      onClick={() => loadFromHistory(item.query)}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatTimestamp(item.timestamp)}
+                        </div>
+                        <div className="text-xs text-cyan-400 font-medium">
+                          {item.result?.count || item.result?.rows?.length || 0} rows
+                        </div>
+                      </div>
+                      <code className="text-sm text-foreground font-mono block overflow-hidden text-ellipsis whitespace-nowrap group-hover:text-cyan-300 transition-colors">
+                        {item.query.split('\n')[0]}
+                      </code>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error Display */}
         {error && (

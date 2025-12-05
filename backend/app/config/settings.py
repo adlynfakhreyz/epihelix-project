@@ -65,11 +65,15 @@ class Settings(BaseSettings):
     huggingface_reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     
     # ===== Chatbot Configuration (LangChain) =====
-    chatbot_llm_provider: str = "kaggle"  # "huggingface", "kaggle", "mock"
+    chatbot_llm_provider: str = "groq"  # "huggingface", "kaggle", "groq", "mock"
     huggingface_chatbot_model: str = "Qwen/Qwen2.5-3B-Chat"
     chatbot_temperature: float = 0.7
     chatbot_max_tokens: int = 512
     session_backend: str = "memory"  # "memory", "redis"
+    
+    # ===== Groq Configuration =====
+    groq_api_key: Optional[str] = None
+    groq_model: str = "llama-3.3-70b-versatile"
     
     # External data sources (optional - for future ETL)
     wikidata_endpoint: str = "https://query.wikidata.org/sparql"

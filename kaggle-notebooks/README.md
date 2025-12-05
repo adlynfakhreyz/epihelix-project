@@ -411,7 +411,7 @@ kaggle-notebooks/
 2. ✅ **Configure backend** to use Kaggle endpoints
 3. ⚠️ **Test search integration** (keyword + semantic + reranking)
 4. ⚠️ **Test chatbot** (RAG with LLM)
-5. ⚠️ **Deploy backend** to Railway (production)
+5. ⚠️ **Deploy backend** to Vercel (production)
 6. ⚠️ **Optional:** Migrate to dedicated GPU hosting for 24/7 uptime
 
 **For production deployment**, see root `README.md` → Deployment section.

@@ -12,6 +12,7 @@ import { GlobalSearch } from './GlobalSearch'
  */
 const navLinks = [
   { href: '/', label: 'Home' },
+  { href: '/entities', label: 'Entities' },
   { href: '/search', label: 'Search' },
   { href: '/query', label: 'Query Console' },
   { href: '/chat', label: 'Chat' },

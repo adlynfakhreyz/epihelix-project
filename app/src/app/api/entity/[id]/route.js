@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
  * Proxies entity detail requests to FastAPI backend
  */
 
-const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000/api'
 
 export async function GET(request, { params }) {
   try {

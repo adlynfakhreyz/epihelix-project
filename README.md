@@ -287,28 +287,28 @@ curl http://localhost:8000/api/entity/disease:malaria
 
 ## 🐳 Deployment
 
-### Vercel + Railway (Recommended)
+### Vercel (Recommended)
 
-**Frontend on Vercel + Backend on Railway** - Best of both platforms:
+**Full stack on Vercel** - Two separate projects for frontend and backend:
 
-[![Deploy Backend on Railway](https://railway.app/button.svg)](https://railway.app/new)
 [![Deploy Frontend on Vercel](https://vercel.com/button)](https://vercel.com/new/clone)
 
 #### Architecture
 ```
-User → Vercel (Next.js) → Railway (FastAPI) → Neo4j Aura
-                                ↓
-                          Kaggle GPU (optional)
+User → Vercel Frontend (Next.js) → Vercel Backend (FastAPI serverless) → Neo4j Aura
+                                                  ↓
+                                            Kaggle GPU (optional)
 ```
 
 #### Setup Steps
 
-1. **Deploy Backend to Railway**
+1. **Deploy Backend to Vercel**
    - Fork this repo to your GitHub account
-   - Go to [Railway Dashboard](https://railway.app/dashboard)
-   - Click **"New Project"** → **"Deploy from GitHub repo"**
-   - Select `epihelix-project`
-   - Railway auto-detects `backend/Dockerfile`
+   - Go to [Vercel Dashboard](https://vercel.app/dashboard)
+   - Click **"Import Project"** → Select `epihelix-project`
+   - **Root Directory**: `backend`
+   - **Framework Preset**: Other (FastAPI)
+   - **Project Name**: `epihelix-api` (separate project)
    
    **Environment Variables:**
    ```bash
@@ -316,37 +316,44 @@ User → Vercel (Next.js) → Railway (FastAPI) → Neo4j Aura
    NEO4J_USER=neo4j
    NEO4J_PASSWORD=<your-password>
    
+   # CORS (allow your frontend domain)
+   CORS_ORIGINS=https://epihelix.vercel.app,http://localhost:3000
+   
    # AI Providers (choose one)
-   RERANKER_PROVIDER=huggingface  # CPU-based, no GPU
+   RERANKER_PROVIDER=huggingface  # CPU-based, slower
    EMBEDDER_PROVIDER=huggingface
    LLM_PROVIDER=huggingface
+   CHATBOT_LLM_PROVIDER=huggingface
    
-   # Or: Kaggle GPU (faster)
+   # Or: Kaggle GPU (faster, requires ngrok setup)
    # KAGGLE_AI_ENDPOINT=https://xxxx.ngrok-free.app
    # RERANKER_PROVIDER=kaggle
    # EMBEDDER_PROVIDER=kaggle
    # LLM_PROVIDER=kaggle
+   # CHATBOT_LLM_PROVIDER=kaggle
    ```
    
-   Backend URL: `https://<your-backend>.up.railway.app`
+   Backend URL: `https://epihelix-api.vercel.app`
 
 2. **Deploy Frontend to Vercel**
-   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
-   - Import your forked `epihelix-project`
-   - Vercel auto-detects `app/` as Next.js project
+   - In Vercel Dashboard, click **"Import Project"** again
+   - Select `epihelix-project` (same repo)
+   - **Root Directory**: `app`
+   - **Framework Preset**: Next.js
+   - **Project Name**: `epihelix` (separate project)
    
    **Environment Variable:**
    ```bash
-   NEXT_PUBLIC_API_URL=https://<your-backend>.up.railway.app
+   FASTAPI_URL=https://epihelix-api.vercel.app
    ```
    
-   Frontend URL: `https://<your-project>.vercel.app`
+   Frontend URL: `https://epihelix.vercel.app`
 
 3. **Setup Neo4j Aura** (Free Tier)
    - Go to [Neo4j Aura](https://console.neo4j.io/)
    - Create free instance (50k nodes, 175k relationships)
    - Copy connection URI and password
-   - Add to Railway backend environment variables
+   - Add to Vercel backend environment variables
 
 4. **Load Data**
    ```bash
@@ -357,18 +364,34 @@ User → Vercel (Next.js) → Railway (FastAPI) → Neo4j Aura
    python load_all_data.py
    ```
 
-#### Why This Setup?
-- ✅ **Vercel**: Optimized for Next.js (Edge Network, ISR, Image Optimization)
-- ✅ **Railway**: Perfect for FastAPI (WebSocket support, long-running processes)
-- ✅ **Auto-deployment** from GitHub on both platforms
-- ✅ **Free SSL** certificates on both
-- ✅ **Generous free tiers** (Vercel: unlimited bandwidth, Railway: $5 credit)
+5. **(Optional) Setup Kaggle GPU for AI**
+   - See `kaggle-notebooks/README.md` for full setup
+   - Deploy notebook to Kaggle with GPU T4x2
+   - Expose via ngrok
+   - Update backend env vars: `KAGGLE_AI_ENDPOINT`, `*_PROVIDER=kaggle`
+
+#### Why Vercel?
+- ✅ **Serverless FastAPI**: Auto-scaling, pay per request
+- ✅ **Edge Network**: Global CDN for frontend
+- ✅ **Auto-deployment** from GitHub on both projects
+- ✅ **Free SSL** certificates
+- ✅ **Generous free tier**: 100 GB bandwidth, 100 GB-hours serverless
 
 #### Cost Estimate
-- **Vercel Pro**: $20/month (optional - free tier sufficient for demos)
-- **Railway Hobby**: $5/month (backend only)
+- **Vercel Free**: $0 (both projects, sufficient for demos)
 - **Neo4j Aura Free**: $0 (50k nodes limit)
-- **Total**: ~$5/month (or $0 with free tiers)
+- **Kaggle GPU**: $0 (30 hours/week)
+- **Total**: $0 for development/demos
+
+**Production (scaled):**
+- **Vercel Pro** (both projects): $40/month ($20 each, 60s timeout)
+- **Neo4j Aura Professional**: $65/month (200k nodes)
+- **Total**: ~$105/month
+
+#### ⚠️ Vercel Serverless Limitations
+- **10s timeout** (free tier) → Upgrade to Pro for 60s
+- **Cold starts** (2-5s first request) → Use keep-alive or Edge Cache
+- **No WebSockets** → Use polling for real-time features
 
 ---
 
@@ -397,24 +420,9 @@ cd app && docker build -t epihelix-frontend . && docker run -p 3000:3000 epiheli
 
 ---
 
-### Alternative: Railway Only (Both Services)
-
-**Deploy both frontend and backend to Railway:**
-
-1. Configure Railway to build both services separately
-2. Railway builds `backend/` and `app/` from their respective Dockerfiles
-3. Less optimal for Next.js (Vercel has better edge optimization)
-
-**When to use:**
-- Single platform preference
-- Need backend-frontend in same private network
-- Simpler billing (one platform)
-
----
-
 ### Other Cloud Options
 
-- **AWS**: ECS Fargate (backend) + Amplify (frontend) + Neptune (graph DB)
+- **AWS**: Lambda (backend) + Amplify (frontend) + Neptune (graph DB)
 - **GCP**: Cloud Run (both) + Compute Engine (Neo4j)
 - **Azure**: App Service (both) + Cosmos DB (graph API)
 
@@ -481,3 +489,4 @@ MIT License - see LICENSE file for details
 - **Knowledge Graphs**: Wikidata, DBpedia
 - **UI**: shadcn/ui, Tailwind CSS, Framer Motion
 - **Backend**: FastAPI, Neo4j, HuggingFace
+
