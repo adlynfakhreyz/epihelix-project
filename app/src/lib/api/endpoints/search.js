@@ -7,18 +7,24 @@
 import { apiClient } from '../client'
 
 /**
- * Search entities by keyword or semantic similarity
+ * Search entities by keyword or semantic similarity with pagination
  * @param {string} query - Search query
  * @param {Object} options - Search options
- * @param {number} [options.limit=10] - Max results
+ * @param {number} [options.page=1] - Page number (1-indexed)
+ * @param {number} [options.page_size=10] - Results per page
  * @param {boolean} [options.semantic=false] - Use semantic search
- * @returns {Promise<Array>} Search results
+ * @param {boolean} [options.rerank=true] - Use cross-encoder reranking (enabled by default)
+ * @param {boolean} [options.summarize=true] - Add LLM summaries (enabled by default)
+ * @returns {Promise<Object>} Paginated search results { results, total, page, page_size, total_pages, has_next, has_prev }
  */
-export async function search(query, { limit = 10, semantic = false } = {}) {
+export async function search(query, { page = 1, page_size = 10, semantic = false, rerank = true, summarize = true } = {}) {
   return apiClient.get('/search', {
     q: query,
-    limit,
+    page,
+    page_size,
     semantic: semantic ? 'true' : 'false',
+    rerank: rerank ? 'true' : 'false',
+    summarize: summarize ? 'true' : 'false',
   })
 }
 

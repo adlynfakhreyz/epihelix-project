@@ -10,9 +10,15 @@ httpx>=0.24.0
 # Knowledge Graph clients
 neo4j>=5.0.0  # Neo4j Python driver
 
-# Machine Learning / AI (Self-Hosted via HuggingFace)
+# Machine Learning / AI (Self-Hosted via HuggingFace or Kaggle)
 numpy>=1.24.0  # Required for embedder service
-# Note: Using HuggingFace Inference API (no local model dependencies needed)
+huggingface_hub>=0.20.0  # For HuggingFace Inference API
+
+# LangChain for chatbot (integrates with custom Kaggle LLM)
+langchain>=0.1.0
+langchain-core>=0.1.0
+
+# Note: Using HuggingFace Inference API or Kaggle GPU (no local model dependencies needed)
 # For local deployment: uncomment sentence-transformers>=2.2.0
 
 # Development

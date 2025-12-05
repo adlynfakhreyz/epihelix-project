@@ -20,8 +20,7 @@ import logging
 
 from .config.settings import settings
 from .core.dependencies import container
-from .routers import search, entity, chat
-from . import mock_data
+from .routers import search, entity, query, admin, summary
 
 # Configure logging
 logging.basicConfig(
@@ -51,11 +50,12 @@ async def startup_event():
     """Initialize resources on application startup."""
     logger.info("Starting up application...")
     
-    # Load mock data (fallback for when KG is not available)
-    mock_data.load_mock()
-    
-    # Initialize dependency container
+    # Initialize dependency container (connects to Neo4j)
     await container.init_resources()
+    
+    # Ensure required indexes exist
+    kg_client = container.get_kg_client()
+    await kg_client.ensure_indexes()
     
     logger.info("Application started successfully")
 
@@ -80,9 +80,19 @@ app.include_router(
     tags=["entity"]
 )
 app.include_router(
-    chat.router,
-    prefix=f"{settings.api_prefix}/chat",
-    tags=["chat"]
+    summary.router,
+    prefix=f"{settings.api_prefix}/summary",
+    tags=["summary"]
+)
+app.include_router(
+    query.router,
+    prefix=f"{settings.api_prefix}/query",
+    tags=["query"]
+)
+app.include_router(
+    admin.router,
+    prefix=f"{settings.api_prefix}/admin",
+    tags=["admin"]
 )
 
 

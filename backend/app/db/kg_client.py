@@ -46,6 +46,8 @@ class Neo4jClient(KnowledgeGraphClient):
         self.password = password
         self.database = database
         self.driver = None
+        self.max_connection_pool_size = 50
+        self.connection_timeout = 30.0
     
     async def connect(self) -> None:
         """Establish connection to Neo4j."""
@@ -53,7 +55,10 @@ class Neo4jClient(KnowledgeGraphClient):
             from neo4j import GraphDatabase
             self.driver = GraphDatabase.driver(
                 self.uri,
-                auth=(self.user, self.password)
+                auth=(self.user, self.password),
+                max_connection_pool_size=self.max_connection_pool_size,
+                connection_timeout=self.connection_timeout,
+                max_transaction_retry_time=10.0
             )
             logger.info(f"Connected to Neo4j at {self.uri}")
         except ImportError:
@@ -88,76 +93,38 @@ class Neo4jClient(KnowledgeGraphClient):
         with self.driver.session(database=self.database) as session:
             result = session.run(query, parameters=params or {})
             return [record.data() for record in result]
-
-
-class SPARQLClient(KnowledgeGraphClient):
-    """SPARQL endpoint client for RDF triple stores."""
     
-    def __init__(self, endpoint: str):
-        self.endpoint = endpoint
-        self.session = None
-    
-    async def connect(self) -> None:
-        """Initialize HTTP session for SPARQL queries."""
-        try:
-            import httpx
-            self.session = httpx.AsyncClient(timeout=30.0)
-            logger.info(f"SPARQL client initialized for {self.endpoint}")
-        except ImportError:
-            logger.warning("httpx not installed, using mock mode")
-    
-    async def disconnect(self) -> None:
-        """Close HTTP session."""
-        if self.session:
-            await self.session.aclose()
-            logger.info("SPARQL client closed")
-    
-    async def health_check(self) -> bool:
-        """Check SPARQL endpoint health."""
-        if not self.session:
-            return False
-        try:
-            response = await self.session.get(self.endpoint)
-            return response.status_code < 500
-        except Exception as e:
-            logger.error(f"SPARQL health check failed: {e}")
-            return False
-    
-    async def execute_query(self, query: str, params: Optional[dict] = None) -> Any:
-        """Execute SPARQL query."""
-        if not self.session:
-            raise RuntimeError("SPARQL client not connected")
+    async def ensure_indexes(self) -> None:
+        """Create required indexes if they don't exist."""
+        if not self.driver:
+            logger.warning("Cannot create indexes - driver not connected")
+            return
         
-        response = await self.session.post(
-            self.endpoint,
-            data={"query": query},
-            headers={"Accept": "application/sparql-results+json"}
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-class MockKGClient(KnowledgeGraphClient):
-    """Mock KG client for development and testing."""
-    
-    def __init__(self):
-        self.connected = False
-    
-    async def connect(self) -> None:
-        self.connected = True
-        logger.info("Mock KG client connected")
-    
-    async def disconnect(self) -> None:
-        self.connected = False
-        logger.info("Mock KG client disconnected")
-    
-    async def health_check(self) -> bool:
-        return self.connected
-    
-    async def execute_query(self, query: str, params: Optional[dict] = None) -> Any:
-        """Return mock results."""
-        logger.debug(f"Mock query: {query}")
-        return []
+        try:
+            with self.driver.session(database=self.database) as session:
+                # Check if fulltext index exists
+                existing_indexes = session.run("SHOW INDEXES").data()
+                index_names = [idx.get("name") for idx in existing_indexes]
+                
+                if "entitySearch" not in index_names:
+                    logger.info("Creating fulltext index 'entitySearch'...")
+                    # Use CREATE FULLTEXT INDEX syntax (compatible with Neo4j Aura)
+                    # Index all searchable text properties for comprehensive search
+                    session.run("""
+                        CREATE FULLTEXT INDEX entitySearch IF NOT EXISTS
+                        FOR (n:Country|Disease|Outbreak|VaccinationRecord|Organization|Vaccine|PandemicEvent)
+                        ON EACH [n.name, n.fullName, n.label, n.description, n.summary, n.title, 
+                                 n.code, n.iso_code, n.icd10, n.mesh, n.category, n.pathogen,
+                                 n.causativeAgent, n.medicalSpecialty, n.prevention,
+                                 n.acronym, n.role, n.vaccineName, n.manufacturer,
+                                 n.capital, n.continent, n.wikipediaAbstract]
+                    """)
+                    logger.info("✓ Fulltext index 'entitySearch' created with comprehensive properties")
+                else:
+                    logger.info("✓ Fulltext index 'entitySearch' already exists")
+                
+        except Exception as e:
+            logger.error(f"Failed to create indexes: {e}")
 
 
 # Global client instance (will be initialized in main.py)

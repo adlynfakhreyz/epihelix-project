@@ -16,8 +16,11 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')
-    const limit = searchParams.get('limit') || '10'
+    const page = searchParams.get('page') || '1'
+    const page_size = searchParams.get('page_size') || '10'
     const semantic = searchParams.get('semantic') || 'false'
+    const rerank = searchParams.get('rerank') || 'true'
+    const summarize = searchParams.get('summarize') || 'true'
 
     // Validation
     if (!q || q.trim().length === 0) {
@@ -30,14 +33,21 @@ export async function GET(request) {
     // Build backend URL
     const backendUrl = new URL(`${FASTAPI_URL}/search`)
     backendUrl.searchParams.set('q', q)
-    backendUrl.searchParams.set('limit', limit)
+    backendUrl.searchParams.set('page', page)
+    backendUrl.searchParams.set('page_size', page_size)
     if (semantic === 'true') {
       backendUrl.searchParams.set('semantic', 'true')
+    }
+    if (rerank === 'true') {
+      backendUrl.searchParams.set('rerank', 'true')
+    }
+    if (summarize === 'true') {
+      backendUrl.searchParams.set('summarize', 'true')
     }
 
     // Log in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('[API] Search:', { q, limit, semantic })
+      console.log('[API] Search:', { q, page, page_size, semantic, rerank, summarize })
     }
 
     // Call FastAPI backend

@@ -10,7 +10,8 @@ const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/ap
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params
+    // Next.js 15+ requires awaiting params
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const includeRelated = searchParams.get('include_related') === 'true'
 

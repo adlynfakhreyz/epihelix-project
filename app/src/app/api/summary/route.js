@@ -26,12 +26,12 @@ export async function POST(request) {
       console.log('[API] Generate summary:', { entity_id, query })
     }
 
-    // Call FastAPI backend
+    // Call FastAPI backend (supports both entity_id and entity_ids)
     const response = await fetch(`${FASTAPI_URL}/summary/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        entity_id,
+        entity_id,  // Backend accepts single entity_id
         query,
         include_relations
       }),

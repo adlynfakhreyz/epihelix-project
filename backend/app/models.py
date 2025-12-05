@@ -130,14 +130,24 @@ class EntitySummary(BaseModel):
     snippet: Optional[str] = None
 
 
+class Relation(BaseModel):
+    """Relationship to another entity"""
+    predicate: str  # Relationship type (e.g., "CAUSED_BY", "OCCURRED_IN")
+    direction: str  # "incoming" or "outgoing"
+    object: Dict[str, Any]  # {id, label, type}
+
+
 class EntityDetail(BaseModel):
-    """Full entity details"""
+    """Full entity details for InfoBox"""
     id: str
     label: str
     type: str
-    summary: Optional[str] = None
     properties: Dict[str, Any]
-    relations: Optional[List[Dict[str, Any]]] = None
+    relations: Optional[List[Relation]] = []
+    
+    class Config:
+        # Allow arbitrary types for flexibility
+        arbitrary_types_allowed = True
 
 
 class SearchResponse(BaseModel):
@@ -159,12 +169,12 @@ class ChatResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str
-    type: str = "cypher"  # "cypher" or "sparql"
+    type: str = "cypher"  # Only Cypher queries supported (Neo4j)
 
 
 class QueryResponse(BaseModel):
     columns: List[str]
-    rows: List[Dict[str, Any]]
+    rows: List[List[Any]]  # Each row is a list of values matching column order
     count: int
 
 

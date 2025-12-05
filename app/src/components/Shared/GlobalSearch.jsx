@@ -21,10 +21,14 @@ export function GlobalSearch({ isOpen, onClose }) {
   const router = useRouter()
 
   // Use React Query hook
-  const { data: suggestions = [], isLoading: loading } = useSearch(debouncedQuery, {
-    limit: 8,
+  const { data: searchData, isLoading: loading } = useSearch(debouncedQuery, {
+    page: 1,
+    page_size: 8,
     semantic
   })
+  
+  // Extract results from paginated response
+  const suggestions = searchData?.results || []
 
   // Focus input when modal opens
   useEffect(() => {

@@ -285,9 +285,96 @@ curl http://localhost:8000/api/entity/disease:malaria
 - **QUICKSTART.md** - 2-minute setup guide with configuration examples
 - **Instructions** - [.github/instructions/epihelix-instructions.instructions.md](.github/instructions/epihelix-instructions.instructions.md) - Complete technical reference for AI agents
 
-## 🐳 Docker Deployment
+## 🐳 Deployment
 
-### All Services
+### Vercel + Railway (Recommended)
+
+**Frontend on Vercel + Backend on Railway** - Best of both platforms:
+
+[![Deploy Backend on Railway](https://railway.app/button.svg)](https://railway.app/new)
+[![Deploy Frontend on Vercel](https://vercel.com/button)](https://vercel.com/new/clone)
+
+#### Architecture
+```
+User → Vercel (Next.js) → Railway (FastAPI) → Neo4j Aura
+                                ↓
+                          Kaggle GPU (optional)
+```
+
+#### Setup Steps
+
+1. **Deploy Backend to Railway**
+   - Fork this repo to your GitHub account
+   - Go to [Railway Dashboard](https://railway.app/dashboard)
+   - Click **"New Project"** → **"Deploy from GitHub repo"**
+   - Select `epihelix-project`
+   - Railway auto-detects `backend/Dockerfile`
+   
+   **Environment Variables:**
+   ```bash
+   NEO4J_URI=neo4j+s://<your-aura-instance>.databases.neo4j.io
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=<your-password>
+   
+   # AI Providers (choose one)
+   RERANKER_PROVIDER=huggingface  # CPU-based, no GPU
+   EMBEDDER_PROVIDER=huggingface
+   LLM_PROVIDER=huggingface
+   
+   # Or: Kaggle GPU (faster)
+   # KAGGLE_AI_ENDPOINT=https://xxxx.ngrok-free.app
+   # RERANKER_PROVIDER=kaggle
+   # EMBEDDER_PROVIDER=kaggle
+   # LLM_PROVIDER=kaggle
+   ```
+   
+   Backend URL: `https://<your-backend>.up.railway.app`
+
+2. **Deploy Frontend to Vercel**
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+   - Import your forked `epihelix-project`
+   - Vercel auto-detects `app/` as Next.js project
+   
+   **Environment Variable:**
+   ```bash
+   NEXT_PUBLIC_API_URL=https://<your-backend>.up.railway.app
+   ```
+   
+   Frontend URL: `https://<your-project>.vercel.app`
+
+3. **Setup Neo4j Aura** (Free Tier)
+   - Go to [Neo4j Aura](https://console.neo4j.io/)
+   - Create free instance (50k nodes, 175k relationships)
+   - Copy connection URI and password
+   - Add to Railway backend environment variables
+
+4. **Load Data**
+   ```bash
+   # From local machine
+   export NEO4J_URI=neo4j+s://<aura-uri>
+   export NEO4J_PASSWORD=<password>
+   cd kg-construction/etl
+   python load_all_data.py
+   ```
+
+#### Why This Setup?
+- ✅ **Vercel**: Optimized for Next.js (Edge Network, ISR, Image Optimization)
+- ✅ **Railway**: Perfect for FastAPI (WebSocket support, long-running processes)
+- ✅ **Auto-deployment** from GitHub on both platforms
+- ✅ **Free SSL** certificates on both
+- ✅ **Generous free tiers** (Vercel: unlimited bandwidth, Railway: $5 credit)
+
+#### Cost Estimate
+- **Vercel Pro**: $20/month (optional - free tier sufficient for demos)
+- **Railway Hobby**: $5/month (backend only)
+- **Neo4j Aura Free**: $0 (50k nodes limit)
+- **Total**: ~$5/month (or $0 with free tiers)
+
+---
+
+### Docker Compose (Local Development)
+
+#### All Services
 ```bash
 # Start everything (Neo4j + Backend + Frontend)
 docker-compose -f infrastructure/docker-compose.yml up
@@ -296,7 +383,7 @@ docker-compose -f infrastructure/docker-compose.yml up
 docker-compose -f infrastructure/docker-compose.prod.yml up -d
 ```
 
-### Individual Services
+#### Individual Services
 ```bash
 # Neo4j only
 cd infrastructure && docker-compose up neo4j
@@ -307,6 +394,31 @@ cd backend && docker build -t epihelix-api . && docker run -p 8000:8000 epihelix
 # Frontend only
 cd app && docker build -t epihelix-frontend . && docker run -p 3000:3000 epihelix-frontend
 ```
+
+---
+
+### Alternative: Railway Only (Both Services)
+
+**Deploy both frontend and backend to Railway:**
+
+1. Configure Railway to build both services separately
+2. Railway builds `backend/` and `app/` from their respective Dockerfiles
+3. Less optimal for Next.js (Vercel has better edge optimization)
+
+**When to use:**
+- Single platform preference
+- Need backend-frontend in same private network
+- Simpler billing (one platform)
+
+---
+
+### Other Cloud Options
+
+- **AWS**: ECS Fargate (backend) + Amplify (frontend) + Neptune (graph DB)
+- **GCP**: Cloud Run (both) + Compute Engine (Neo4j)
+- **Azure**: App Service (both) + Cosmos DB (graph API)
+
+See `QUICKSTART.md` for complete deployment guide.
 
 ## 🔧 Configuration
 

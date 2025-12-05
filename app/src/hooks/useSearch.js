@@ -11,20 +11,25 @@ import { search } from '@/lib/api/endpoints/search'
 import { queryKeys } from '@/lib/queryClient'
 
 /**
- * Search entities with React Query
+ * Search entities with React Query and pagination
  * @param {string} query - Search query
  * @param {Object} options - Search options
- * @param {number} [options.limit=10] - Max results
+ * @param {number} [options.page=1] - Page number
+ * @param {number} [options.page_size=10] - Results per page
  * @param {boolean} [options.semantic=false] - Use semantic search
+ * @param {boolean} [options.rerank=true] - Use cross-encoder reranking (enabled by default)
+ * @param {boolean} [options.summarize=true] - Add LLM summaries (enabled by default)
  * @param {boolean} [options.enabled=true] - Enable query
- * @returns {Object} React Query result
+ * @returns {Object} React Query result with pagination data
  */
-export function useSearch(query, { limit = 10, semantic = false, enabled = true } = {}) {
+export function useSearch(query, { page = 1, page_size = 10, semantic = false, rerank = true, summarize = true, enabled = true } = {}) {
   return useQuery({
-    queryKey: queryKeys.search(query, { limit, semantic }),
-    queryFn: () => search(query, { limit, semantic }),
+    queryKey: queryKeys.search(query, { page, page_size, semantic, rerank, summarize }),
+    queryFn: () => search(query, { page, page_size, semantic, rerank, summarize }),
     enabled: enabled && Boolean(query?.trim()),
-    keepPreviousData: true,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000, // Keep in memory for 10 minutes
+    // This allows instant navigation between pages you've already visited
   })
 }
 

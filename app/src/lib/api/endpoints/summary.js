@@ -15,7 +15,7 @@ import { apiClient } from '../client'
  * @returns {Promise<Object>} Summary with metadata
  */
 export async function generateSummary(entityId, { query, includeRelations = true } = {}) {
-  return apiClient.post('/summary', {
+  return apiClient.post('/summary/generate', {
     entity_id: entityId,
     query,
     include_relations: includeRelations,

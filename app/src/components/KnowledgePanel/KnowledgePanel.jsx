@@ -111,7 +111,8 @@ export default function KnowledgePanel({ entity }) {
 
                 {/* Additional properties */}
                 {Object.entries(properties).map(([key, value]) => {
-                  if (['location', 'date', 'cases', 'deaths', 'image', 'description'].includes(key)) {
+                  // Skip these properties
+                  if (['location', 'date', 'cases', 'deaths', 'image', 'description', 'embedding', 'enriched', 'enrichedAt', 'dbpediaEnriched', 'wikidataId', 'dbpediaUri'].includes(key)) {
                     return null
                   }
                   return (

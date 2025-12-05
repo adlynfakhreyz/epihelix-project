@@ -32,12 +32,17 @@ class Settings(BaseSettings):
     # Neo4j 5+ has native vector support - no separate vector DB needed
     vector_db_type: str = "neo4j"  # "neo4j" or "mock"
     
+    # ===== Kaggle AI Services (Unified GPU Endpoint) =====
+    # REQUIRED: Get this URL from Kaggle notebook output after running ngrok
+    # Example: https://1234-56-789-012-34.ngrok-free.app
+    kaggle_ai_endpoint: Optional[str] = None
+    
     # ===== LLM Configuration (Self-Hosted) =====
-    llm_provider: str = "mock"  # "huggingface", "huggingface_space", "mock"
+    llm_provider: str = "kaggle"  # "huggingface", "huggingface_space", "kaggle", "mock"
     
     # HuggingFace Settings
     huggingface_api_key: Optional[str] = None  # Optional for public models
-    huggingface_llm_model: str = "meta-llama/Llama-3.2-3B-Instruct"
+    huggingface_llm_model: str = "Qwen/Qwen2.5-3B-Instruct"
     huggingface_llm_endpoint: Optional[str] = None  # Custom endpoint URL
     
     # HuggingFace Space Settings (for self-hosted Gradio apps)
@@ -48,12 +53,23 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 512
     
     # ===== Embedder Configuration (Self-Hosted) =====
-    embedder_provider: str = "mock"  # "huggingface", "mock"
+    embedder_provider: str = "kaggle"  # "huggingface", "kaggle", "mock"
     
     # Embedding Model Settings
     huggingface_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     huggingface_embedding_endpoint: Optional[str] = None
     embedding_dimension: int = 384  # Must match model dimension
+    
+    # ===== Reranker Configuration =====
+    reranker_provider: str = "kaggle"  # "huggingface", "kaggle", "mock"
+    huggingface_reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    
+    # ===== Chatbot Configuration (LangChain) =====
+    chatbot_llm_provider: str = "kaggle"  # "huggingface", "kaggle", "mock"
+    huggingface_chatbot_model: str = "Qwen/Qwen2.5-3B-Chat"
+    chatbot_temperature: float = 0.7
+    chatbot_max_tokens: int = 512
+    session_backend: str = "memory"  # "memory", "redis"
     
     # External data sources (optional - for future ETL)
     wikidata_endpoint: str = "https://query.wikidata.org/sparql"
