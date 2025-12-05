@@ -20,7 +20,7 @@ import logging
 
 from .config.settings import settings
 from .core.dependencies import container
-from .routers import search, entity, query, admin, summary
+from .routers import search, entity, query, admin, summary, chat
 
 # Configure logging
 logging.basicConfig(
@@ -93,6 +93,11 @@ app.include_router(
     admin.router,
     prefix=f"{settings.api_prefix}/admin",
     tags=["admin"]
+)
+app.include_router(
+    chat.router,
+    prefix=f"{settings.api_prefix}/chat",
+    tags=["chat"]
 )
 
 

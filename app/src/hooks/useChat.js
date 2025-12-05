@@ -6,89 +6,110 @@
 
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { sendMessage, clearSession, createSessionId } from '@/lib/api'
 import { queryKeys } from '@/lib/queryClient'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+
+const SESSION_STORAGE_KEY = 'epihelix_chat_session_id'
 
 /**
- * Send chat message with React Query mutation
- * @param {string} sessionId - Session ID
- * @param {Object} [options] - Mutation options
- * @returns {Object} React Query mutation result
+ * Get or create session ID from localStorage
  */
-export function useSendMessage(sessionId, options = {}) {
-  return useMutation({
-    mutationFn: ({ message, includeHistory }) =>
-      sendMessage(message, { sessionId, includeHistory }),
-    
-    ...options,
-  })
-}
-
-/**
- * Clear chat session with React Query mutation
- * @param {Object} [options] - Mutation options
- * @returns {Object} React Query mutation result
- */
-export function useClearSession(options = {}) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (sessionId) => clearSession(sessionId),
-    
-    onSuccess: (data, sessionId) => {
-      // Invalidate chat queries for this session
-      queryClient.invalidateQueries(queryKeys.chat(sessionId))
-    },
-    
-    ...options,
-  })
+function getOrCreateSessionId() {
+  if (typeof window === 'undefined') return null
+  
+  let sessionId = localStorage.getItem(SESSION_STORAGE_KEY)
+  if (!sessionId) {
+    sessionId = createSessionId()
+    localStorage.setItem(SESSION_STORAGE_KEY, sessionId)
+  }
+  return sessionId
 }
 
 /**
  * Complete chat hook with session management
- * @param {Object} [options] - Chat options
- * @param {string} [options.initialSessionId] - Initial session ID
- * @returns {Object} Chat state and methods
  */
 export function useChat({ initialSessionId } = {}) {
-  const [sessionId, setSessionId] = useState(
-    () => initialSessionId || createSessionId()
-  )
+  const [sessionId, setSessionId] = useState(initialSessionId || null)
   const [messages, setMessages] = useState([])
+  const [isReady, setIsReady] = useState(false)
+  
+  // Use ref to always have current sessionId in mutation
+  const sessionIdRef = useRef(sessionId)
+  
+  // Keep ref in sync
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
 
-  const sendMessageMutation = useSendMessage(sessionId, {
+  // Get session ID from localStorage on client-side only
+  useEffect(() => {
+    const storedSessionId = getOrCreateSessionId()
+    setSessionId(storedSessionId)
+    sessionIdRef.current = storedSessionId
+    setIsReady(true)
+  }, [])
+
+  const queryClient = useQueryClient()
+
+  // Send message mutation - uses ref for current sessionId
+  const sendMessageMutation = useMutation({
+    mutationFn: ({ message, includeHistory }) => {
+      const currentSessionId = sessionIdRef.current
+      console.log('[useChat] Sending message with session:', currentSessionId)
+      return sendMessage(message, { 
+        sessionId: currentSessionId, 
+        includeHistory 
+      })
+    },
     onSuccess: (data, variables) => {
-      // Add user message and bot response to local state
+      console.log('[useChat] Response received, session:', data.session_id)
       setMessages(prev => [
         ...prev,
         { role: 'user', content: variables.message },
-        { role: 'assistant', content: data.reply, sources: data.sources },
+        { role: 'assistant', content: data.message, sources: data.sources },
       ])
     },
+    onError: (error) => {
+      console.error('[useChat] Error:', error)
+    }
   })
 
-  const clearSessionMutation = useClearSession({
+  // Clear session mutation
+  const clearSessionMutation = useMutation({
+    mutationFn: () => {
+      const currentSessionId = sessionIdRef.current
+      return clearSession(currentSessionId)
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries(queryKeys.chat(sessionIdRef.current))
       setMessages([])
     },
   })
 
   const send = useCallback(
     (message) => {
+      if (!sessionIdRef.current) {
+        console.warn('[useChat] No session ID, cannot send')
+        return
+      }
       sendMessageMutation.mutate({ message, includeHistory: true })
     },
     [sendMessageMutation]
   )
 
   const clear = useCallback(() => {
-    clearSessionMutation.mutate(sessionId)
-  }, [clearSessionMutation, sessionId])
+    if (!sessionIdRef.current) return
+    clearSessionMutation.mutate()
+  }, [clearSessionMutation])
 
   const reset = useCallback(() => {
+    // Create new session and save to localStorage
     const newSessionId = createSessionId()
+    localStorage.setItem(SESSION_STORAGE_KEY, newSessionId)
     setSessionId(newSessionId)
+    sessionIdRef.current = newSessionId
     setMessages([])
   }, [])
 
@@ -98,9 +119,8 @@ export function useChat({ initialSessionId } = {}) {
     send,
     clear,
     reset,
-    isLoading: sendMessageMutation.isLoading,
+    isLoading: sendMessageMutation.isPending,
     error: sendMessageMutation.error,
+    isReady,
   }
 }
-
-export default useChat

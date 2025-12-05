@@ -34,11 +34,13 @@ from ..utils import (
     BaseReranker,
     KaggleReranker,
     BaseLLM,
-    KaggleLLM
+    KaggleLLM,
+    GroqLLM
 )
 from ..services.entity_service import EntityService
 from ..services.summary_service import SummaryService
 from ..services.query_service import QueryService
+from ..services.chatbot_service import ChatbotService
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,7 @@ class Container:
         self._embedder: Optional[BaseEmbedder] = None
         self._reranker: Optional[BaseReranker] = None
         self._llm: Optional[BaseLLM] = None
+        self._groq_llm: Optional[GroqLLM] = None
         
         # Retriever (search strategy)
         self._retriever: Optional[BaseRetriever] = None
@@ -62,6 +65,7 @@ class Container:
         self._entity_service: Optional[EntityService] = None
         self._summary_service: Optional[SummaryService] = None
         self._query_service: Optional[QueryService] = None
+        self._chatbot_service: Optional[ChatbotService] = None
     
     async def init_resources(self):
         """Initialize all resources (call on startup)."""
@@ -99,6 +103,19 @@ class Container:
             kaggle_llm=self._llm
         )
         self._query_service = QueryService(entity_repo=self._entity_repo)
+
+        # Initialize Groq LLM for chatbot
+        self._groq_llm = self._create_groq_llm()
+        
+        # Initialize chatbot service
+        if self._groq_llm:
+            self._chatbot_service = ChatbotService(
+                retriever=self._retriever,
+                llm=self._groq_llm,
+                max_context_entities=5
+            )
+        else:
+            logger.warning("ChatbotService not initialized (Groq LLM not configured)")
         
         logger.info("Resources initialized successfully")
     
@@ -149,6 +166,20 @@ class Container:
             )
         else:
             logger.info("⚠️ Kaggle LLM not configured")
+            return None
+        
+    def _create_groq_llm(self) -> Optional[GroqLLM]:
+        """Create Groq LLM for chatbot."""
+        if settings.chatbot_llm_provider == "groq" and settings.groq_api_key:
+            logger.info(f"✅ Using Groq LLM: {settings.groq_model}")
+            return GroqLLM(
+                api_key=settings.groq_api_key,
+                model=settings.groq_model,
+                temperature=settings.chatbot_temperature,
+                max_tokens=settings.chatbot_max_tokens
+            )
+        else:
+            logger.warning("⚠️ Groq LLM not configured (set GROQ_API_KEY and CHATBOT_LLM_PROVIDER=groq)")
             return None
     
     def _create_embedder(self) -> BaseEmbedder:
@@ -223,6 +254,12 @@ class Container:
         if not self._query_service:
             raise RuntimeError("Query service not initialized")
         return self._query_service
+    
+    def get_chatbot_service(self) -> ChatbotService:
+        """Get chatbot service instance."""
+        if not self._chatbot_service:
+            raise RuntimeError("Chatbot service not initialized. Check GROQ_API_KEY in .env")
+        return self._chatbot_service
 
 
 # Global container instance
@@ -268,3 +305,7 @@ def get_summary_service() -> SummaryService:
 def get_query_service() -> QueryService:
     """FastAPI dependency: Get query service."""
     return container.get_query_service()
+
+def get_chatbot_service() -> ChatbotService:
+    """FastAPI dependency: Get chatbot service."""
+    return container.get_chatbot_service()

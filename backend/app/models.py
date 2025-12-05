@@ -162,7 +162,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    reply: str
+    message: str
     sources: Optional[List[Dict[str, Any]]] = None
     session_id: Optional[str] = None
 

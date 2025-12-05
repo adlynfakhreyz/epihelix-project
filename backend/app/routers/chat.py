@@ -6,7 +6,6 @@ Following best practices:
 - Streaming support (can be added)
 """
 from fastapi import APIRouter, Depends
-from typing import Optional
 import uuid
 
 from ..models import ChatRequest, ChatResponse
@@ -24,7 +23,6 @@ def get_chatbot_service() -> ChatbotService:
 @router.post("/", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
-    session_id: Optional[str] = None,
     service: ChatbotService = Depends(get_chatbot_service)
 ):
     """Chat endpoint with RAG (Retrieval-Augmented Generation).
@@ -33,20 +31,14 @@ async def chat(
     1. Retrieve relevant entities from KG
     2. Generate answer using LLM with context
     3. Return answer with sources
-    
-    For production, consider:
-    - Streaming responses (Server-Sent Events)
-    - LangGraph for complex orchestration
-    - Memory/session persistence (Redis)
     """
-    # Generate session ID if not provided
-    if not session_id:
-        session_id = str(uuid.uuid4())
+    # Use session_id from request body, generate if not provided
+    session_id = req.session_id or str(uuid.uuid4())
     
     response = await service.chat(
         message=req.message,
         session_id=session_id,
-        include_history=True
+        include_history=req.include_history
     )
     
     return ChatResponse(**response)
