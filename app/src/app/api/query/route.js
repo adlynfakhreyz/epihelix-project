@@ -35,7 +35,7 @@ export async function POST(request) {
     }
 
     // Call FastAPI backend
-    const backendUrl = `${FASTAPI_URL}/query`
+    const backendUrl = `${FASTAPI_URL}/query/`
     console.log('[API] Calling backend:', backendUrl)
     
     const response = await fetch(backendUrl, {
