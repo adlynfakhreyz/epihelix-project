@@ -95,18 +95,18 @@ class Container:
             use_reranking=True,
             keyword_weight=0.5
         )
-        
+
+        # Initialize Groq LLM (shared for chatbot and summary)
+        self._groq_llm = self._create_groq_llm()
+
         # Initialize business services (business logic only)
         self._entity_service = EntityService(self._entity_repo)
         self._summary_service = SummaryService(
             entity_repository=self._entity_repo,
-            kaggle_llm=self._llm
+            groq_llm=self._groq_llm
         )
         self._query_service = QueryService(entity_repo=self._entity_repo)
 
-        # Initialize Groq LLM for chatbot
-        self._groq_llm = self._create_groq_llm()
-        
         # Initialize chatbot service
         if self._groq_llm:
             self._chatbot_service = ChatbotService(

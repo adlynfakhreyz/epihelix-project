@@ -1,53 +1,98 @@
 """Summary service - LLM-powered entity summarization.
 
 Provides Google-like summaries for search results and entity pages.
-Uses LLM to generate concise, informative summaries from KG facts.
-
-Refactored architecture: Uses utils.llm directly (no service wrapper).
+Uses Groq LLM to generate concise, informative summaries from KG facts.
 """
 from typing import Dict, List, Optional
 from ..repositories.entity_repository import EntityRepository
-from ..utils.llm import KaggleLLM  # ✅ Import from utils
-import httpx
+from ..utils.llm_groq import GroqLLM
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class SummaryService:
-    """Service for generating entity summaries using Kaggle /summarize."""
+    """Service for generating entity summaries using Groq LLM."""
     
     def __init__(
         self,
         entity_repository: EntityRepository,
-        kaggle_llm=None  # KaggleLLM utility instance
+        groq_llm: Optional[GroqLLM] = None
     ):
         """Initialize summary service.
         
         Args:
             entity_repository: Data access for entities
-            kaggle_llm: KaggleLLM utility instance (from utils.llm)
+            groq_llm: GroqLLM utility instance
         """
         self.entity_repo = entity_repository
-        self.kaggle_endpoint = kaggle_llm.endpoint_url if kaggle_llm else None
+        self.llm = groq_llm
+        
+        if self.llm:
+            logger.info("✅ SummaryService initialized with Groq LLM")
+        else:
+            logger.warning("⚠️ SummaryService initialized without LLM")
+    
+    def _build_entity_context(self, entity: Dict, relations: List[Dict] = None) -> str:
+        """Build context string from entity data.
+        
+        Args:
+            entity: Entity dict with properties
+            relations: Related entities
+            
+        Returns:
+            Formatted context string
+        """
+        parts = []
+        
+        # Basic info
+        label = entity.get('label', 'Unknown')
+        entity_type = entity.get('type', 'Unknown')
+        parts.append(f"**{label}** ({entity_type})")
+        
+        # Properties
+        props = entity.get("properties", {})
+        if props:
+            parts.append("\nKey Facts:")
+            for key, val in list(props.items())[:10]:
+                if val and key not in ["id", "embedding", "enriched", "enrichedAt"]:
+                    clean_key = key.replace("_", " ").title()
+                    # Truncate long values
+                    val_str = str(val)
+                    if len(val_str) > 200:
+                        val_str = val_str[:200] + "..."
+                    parts.append(f"- {clean_key}: {val_str}")
+        
+        # Relations
+        if relations:
+            parts.append("\nRelated Entities:")
+            by_type = {}
+            for rel in relations[:15]:
+                rel_type = rel.get('type', 'Unknown')
+                rel_label = rel.get('label', 'Unknown')
+                if rel_type not in by_type:
+                    by_type[rel_type] = []
+                by_type[rel_type].append(rel_label)
+            
+            for rel_type, labels in list(by_type.items())[:5]:
+                labels_str = ", ".join(labels[:5])
+                parts.append(f"- {rel_type}: {labels_str}")
+        
+        return "\n".join(parts)
     
     async def generate_entity_summary(
         self,
         entity_id: str,
         include_relations: bool = True
     ) -> Dict:
-        """Generate summary for an entity by calling Kaggle /summarize.
+        """Generate summary for a single entity.
         
         Args:
             entity_id: Entity ID to summarize
             include_relations: Include related entities in summary
         
         Returns:
-            {
-                "entity_id": str,
-                "summary": str,
-                "context_used": {...}
-            }
+            {"entity_id": str, "summary": str, "context_used": {...}}
         """
         # Fetch entity from KG
         entity = await self.entity_repo.get_by_id(entity_id)
@@ -55,74 +100,68 @@ class SummaryService:
         if not entity:
             return {
                 "entity_id": entity_id,
-                "summary": "Entity not found.",
+                "summary": "Entity not found in the knowledge graph.",
                 "context_used": {"properties": 0, "relations": 0}
             }
         
-        # Build context text
-        context_parts = [
-            f"Entity: {entity.get('label', 'Unknown')}",
-            f"Type: {entity.get('type', 'Unknown')}"
-        ]
-        
-        # Add properties
-        props = entity.get("properties", {})
-        if props:
-            for key, val in list(props.items())[:5]:
-                context_parts.append(f"{key}: {val}")
-        
-        # Add related entities using get_related (richer graph context)
-        related_entities = []
+        # Fetch related entities
+        relations = []
         if include_relations:
             try:
-                related_entities = await self.entity_repo.get_related(entity_id, max_depth=1)
+                relations = await self.entity_repo.get_related(entity_id, max_depth=1)
             except Exception as e:
                 logger.warning(f"Failed to fetch related entities: {e}")
         
-        if related_entities:
-            context_parts.append("\\nRelated entities:")
-            # Group by type for better context
-            by_type = {}
-            for rel in related_entities[:10]:  # Limit to 10 for summary
-                rel_type = rel.get('type', 'Unknown')
-                rel_label = rel.get('label', 'Unknown')
-                if rel_type not in by_type:
-                    by_type[rel_type] = []
-                by_type[rel_type].append(rel_label)
-            
-            for rel_type, labels in list(by_type.items())[:5]:  # Top 5 types
-                labels_str = ", ".join(labels[:3])  # Top 3 per type
-                context_parts.append(f"- {rel_type}: {labels_str}")
+        # Build context
+        context = self._build_entity_context(entity, relations)
         
-        context_text = "\\n".join(context_parts)
-        
-        # Call Kaggle /summarize
-        if not self.kaggle_endpoint:
-            summary_text = f"{entity.get('label')}: No LLM configured."
+        # Generate summary with LLM
+        if not self.llm:
+            # Fallback: simple description without LLM
+            label = entity.get('label', 'Unknown')
+            entity_type = entity.get('type', 'Unknown')
+            props = entity.get("properties", {})
+            desc = props.get("description") or props.get("wikipediaAbstract") or props.get("abstract")
+            if desc:
+                summary_text = f"{label} is a {entity_type.lower()}. {desc[:300]}"
+            else:
+                summary_text = f"{label} is a {entity_type.lower()} in the EpiHelix knowledge graph."
         else:
             try:
-                async with httpx.AsyncClient(timeout=30) as client:
-                    response = await client.post(
-                        f"{self.kaggle_endpoint}/summarize",
-                        json={
-                            "text": context_text,
-                            "max_length": 150,
-                            "temperature": 0.7
-                        }
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    summary_text = data["summary"]
+                system_prompt = """You are a helpful assistant that generates concise summaries about diseases, countries, outbreaks, and health data.
+
+Guidelines:
+- Write 2-3 sentences maximum
+- Focus on the most important facts
+- Be factual and informative
+- Use simple, clear language
+- Do not make up information not in the context"""
+
+                prompt = f"""Based on the following information from a knowledge graph, write a brief summary:
+
+{context}
+
+Write a concise 2-3 sentence summary about this entity:"""
+
+                summary_text = await self.llm.agenerate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=150,
+                    temperature=0.5
+                )
+                summary_text = summary_text.strip()
+                
             except Exception as e:
                 logger.error(f"❌ Summary generation failed: {e}")
-                summary_text = f"{entity.get('label')}: Summary unavailable."
+                label = entity.get('label', 'Unknown')
+                summary_text = f"{label}: Summary generation failed."
         
         return {
             "entity_id": entity_id,
             "summary": summary_text,
             "context_used": {
-                "properties": len(props),
-                "relations": len(related_entities)
+                "properties": len(entity.get("properties", {})),
+                "relations": len(relations)
             }
         }
     
@@ -142,6 +181,7 @@ class SummaryService:
         Returns:
             {"summary": str, "entities": [...]}
         """
+        # Single entity
         if entity_id:
             result = await self.generate_entity_summary(entity_id)
             return {
@@ -149,52 +189,62 @@ class SummaryService:
                 "entities": [entity_id]
             }
         
+        # Multiple entities
         if entity_ids and len(entity_ids) > 0:
-            # Fetch all entities
-            entities = []
+            entities_data = []
             for eid in entity_ids[:10]:  # Limit to 10
                 entity = await self.entity_repo.get_by_id(eid)
                 if entity:
-                    entities.append(entity)
+                    entities_data.append(entity)
             
-            if not entities:
+            if not entities_data:
                 return {
-                    "summary": "No entities found.",
+                    "summary": "No entities found in the knowledge graph.",
                     "entities": []
                 }
             
             # Build combined context
             context_parts = []
-            for i, entity in enumerate(entities, 1):
+            for entity in entities_data:
                 label = entity.get('label', 'Unknown')
                 entity_type = entity.get('type', 'Unknown')
-                context_parts.append(f"{i}. {label} ({entity_type})")
+                props = entity.get('properties', {})
+                desc = props.get("description") or props.get("abstract", "")
+                if desc:
+                    desc = desc[:150] + "..." if len(desc) > 150 else desc
+                context_parts.append(f"- {label} ({entity_type}): {desc}" if desc else f"- {label} ({entity_type})")
             
-            if context:
-                full_text = f"Context: {context}\\n\\nEntities:\\n" + "\\n".join(context_parts)
-            else:
-                full_text = "Entities:\\n" + "\\n".join(context_parts)
+            entities_text = "\n".join(context_parts)
             
-            # Call Kaggle /summarize
-            if not self.kaggle_endpoint:
-                summary_text = f"Summary of {len(entities)} entities (no LLM configured)."
+            if not self.llm:
+                summary_text = f"Summary of {len(entities_data)} entities from the knowledge graph."
             else:
                 try:
-                    async with httpx.AsyncClient(timeout=30) as client:
-                        response = await client.post(
-                            f"{self.kaggle_endpoint}/summarize",
-                            json={
-                                "text": full_text,
-                                "max_length": 200,
-                                "temperature": 0.6
-                            }
-                        )
-                        response.raise_for_status()
-                        data = response.json()
-                        summary_text = data["summary"]
+                    system_prompt = """You are a helpful assistant that generates concise summaries about health-related entities.
+
+Guidelines:
+- Write 2-4 sentences maximum
+- Highlight common themes or patterns
+- Be factual and informative"""
+
+                    user_context = f"User query: {context}\n\n" if context else ""
+                    prompt = f"""{user_context}Summarize these entities from the knowledge graph:
+
+{entities_text}
+
+Write a brief summary:"""
+
+                    summary_text = await self.llm.agenerate(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        max_tokens=200,
+                        temperature=0.5
+                    )
+                    summary_text = summary_text.strip()
+                    
                 except Exception as e:
                     logger.error(f"❌ Multi-entity summary failed: {e}")
-                    summary_text = f"Summary of {len(entities)} entities (generation failed)."
+                    summary_text = f"Summary of {len(entities_data)} entities (generation failed)."
             
             return {
                 "summary": summary_text,
