@@ -4,10 +4,10 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Sparkles } from 'lucide-react'
 import EntityCard from '../../components/EntityCard/EntityCard'
-import KnowledgePanel from '../../components/KnowledgePanel/KnowledgePanel'
+import InfoBox from '../../components/InfoBox/InfoBox'
 import ResultSummary from '../../components/ResultSummary/ResultSummary'
-import useSearch from '../../hooks/useSearch'
-import { generateSummary, getKnowledgePanel } from '../../lib/api'
+import { useSearch } from '../../hooks/useSearch'
+import { useEntity } from '../../hooks/useEntity'
 import { motion, AnimatePresence } from 'framer-motion'
 import { staggerChildren, listItem } from '../../lib/animations'
 
@@ -23,15 +23,26 @@ const placeholders = [
 function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { results, loading, executeSearch } = useSearch()
   const [semantic, setSemantic] = useState(false)
   const [query, setQuery] = useState('')
-  const [hasResults, setHasResults] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 20
   
-  // Top result data
-  const [topSummary, setTopSummary] = useState(null)
-  const [topKnowledgePanel, setTopKnowledgePanel] = useState(null)
-  const [loadingSummary, setLoadingSummary] = useState(false)
+  // React Query hooks
+  const { data: searchData, isLoading: loading, isFetching } = useSearch(debouncedQuery, { 
+    page,
+    page_size: pageSize,
+    semantic, 
+    enabled: debouncedQuery.length > 0 
+  })
+  
+  // Extract results from paginated response
+  const results = searchData?.results || []
+  const topResult = results[0]
+  const { data: knowledgePanelData } = useEntity(topResult?.id, { enabled: Boolean(topResult?.id) })
+  
+  const hasResults = results.length > 0
 
   // Typewriter animation
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
@@ -71,46 +82,30 @@ function SearchPageContent() {
     const q = searchParams.get('q')
     if (q) {
       setQuery(q)
-      executeSearch(q, { semantic })
+      setDebouncedQuery(q)
     }
   }, [searchParams])
 
-  // Update hasResults when results change
+  // Debounce query for search
   useEffect(() => {
-    setHasResults(results.length > 0)
-  }, [results])
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query)
+      setPage(1) // Reset to page 1 on new search
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [query])
 
-  // Load summary and knowledge panel for top result
+  // Scroll to top when page changes
   useEffect(() => {
-    if (results.length > 0 && query) {
-      const topResult = results[0]
-      
-      // Load summary
-      setLoadingSummary(true)
-      generateSummary(topResult.id, query, topResult.type)
-        .then((data) => {
-          setTopSummary(data.summary)
-          setLoadingSummary(false)
-        })
-        .catch(() => {
-          setLoadingSummary(false)
-        })
-
-      // Load knowledge panel
-      getKnowledgePanel(topResult.id)
-        .then((data) => {
-          setTopKnowledgePanel(data)
-        })
-    } else {
-      setTopSummary(null)
-      setTopKnowledgePanel(null)
+    if (page > 1) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-  }, [results, query])
+  }, [page])
 
   function handleSearch(e) {
     e.preventDefault()
     if (query.trim()) {
-      executeSearch(query, { semantic })
+      setDebouncedQuery(query.trim())
       // Update URL with query
       router.push(`/search?q=${encodeURIComponent(query.trim())}`, { scroll: false })
     }
@@ -230,7 +225,16 @@ function SearchPageContent() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
               >
-                Found {results.length} result{results.length !== 1 ? 's' : ''}
+                {searchData?.total ? (
+                  <>
+                    Found {searchData.total} result{searchData.total !== 1 ? 's' : ''}
+                    {searchData.total_pages > 1 && (
+                      <span> (Page {searchData.page} of {searchData.total_pages})</span>
+                    )}
+                  </>
+                ) : (
+                  `Found ${results.length} result${results.length !== 1 ? 's' : ''}`
+                )}
               </motion.div>
 
               {/* Google-style Layout: Left (Summary + EntityCards) | Right (Knowledge Panel) */}
@@ -248,14 +252,24 @@ function SearchPageContent() {
                       <ResultSummary
                         result={results[0]}
                         query={query}
-                        summary={topSummary}
-                        loading={loadingSummary}
+                        summary={searchData?.summary?.summary}
+                        loading={loading || isFetching}
                       />
                     </div>
                   )}
 
                   {/* All Entity Cards */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 relative">
+                    {/* Loading overlay for pagination */}
+                    {isFetching && !loading && (
+                      <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+                        <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-lg border border-border shadow-lg">
+                          <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm text-muted-foreground">Loading page {page}...</span>
+                        </div>
+                      </div>
+                    )}
+                    
                     {results.map((entity, index) => (
                       <motion.div
                         key={entity.id}
@@ -267,20 +281,76 @@ function SearchPageContent() {
                       </motion.div>
                     ))}
                   </div>
+
+                  {/* Pagination Controls */}
+                  {searchData && searchData.total_pages > 1 && (
+                    <motion.div
+                      className="mt-8 flex items-center justify-center gap-2"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8, duration: 0.6 }}
+                    >
+                      <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={!searchData.has_prev}
+                        className="px-4 py-2 rounded-lg bg-card border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: searchData.total_pages }, (_, i) => i + 1)
+                          .filter(p => {
+                            // Show first, last, current, and neighbors
+                            return p === 1 || 
+                                   p === searchData.total_pages || 
+                                   Math.abs(p - searchData.page) <= 1
+                          })
+                          .map((p, idx, arr) => {
+                            const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
+                            return (
+                              <React.Fragment key={p}>
+                                {showEllipsis && <span className="px-2 text-muted-foreground">...</span>}
+                                <button
+                                  onClick={() => setPage(p)}
+                                  className={`w-10 h-10 rounded-lg transition-colors ${
+                                    p === searchData.page
+                                      ? 'bg-cyan-500/20 border-2 border-cyan-500 text-cyan-400 font-semibold'
+                                      : 'bg-card border border-border hover:bg-accent'
+                                  }`}
+                                >
+                                  {p}
+                                </button>
+                              </React.Fragment>
+                            )
+                          })}
+                      </div>
+                      
+                      <button
+                        onClick={() => setPage(p => Math.min(searchData.total_pages, p + 1))}
+                        disabled={!searchData.has_next}
+                        className="px-4 py-2 rounded-lg bg-card border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </motion.div>
+                  )}
                 </motion.div>
 
-                {/* Right: Knowledge Panel (fixed width sidebar, sticky) */}
+                {/* Right: InfoBox Panel (fixed width sidebar, sticky) */}
                 <motion.aside
-                  className="w-full lg:w-80 xl:w-96 lg:flex-shrink-0 order-1 lg:order-2"
+                  className="w-full lg:w-96 xl:w-[28rem] lg:flex-shrink-0 order-1 lg:order-2"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
                 >
-                  {topKnowledgePanel && (
-                    <div className="lg:sticky lg:top-6">
-                      <KnowledgePanel entity={topKnowledgePanel} />
-                    </div>
-                  )}
+                  <div className="lg:sticky lg:top-6">
+                    <InfoBox 
+                      entity={knowledgePanelData} 
+                      loading={!knowledgePanelData}
+                      showRelations={false}
+                    />
+                  </div>
                 </motion.aside>
               </div>
             </motion.div>

@@ -2,33 +2,30 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Trash2, Code, Database } from 'lucide-react'
+import { Play, Trash2, Database, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useQueryConsole } from '@/hooks/useQuery'
 
 export default function QueryPage() {
-  const [queryType, setQueryType] = useState('cypher')
-  const [query, setQuery] = useState(
-    queryType === 'cypher'
-      ? 'MATCH (n) RETURN n LIMIT 10'
-      : 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10'
-  )
-  const [results, setResults] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [query, setQuery] = useState('MATCH (d:Disease) RETURN d.id, d.name, d.eradicated LIMIT 10')
+  
+  const {
+    execute,
+    clearHistory,
+    history,
+    isLoading,
+    error,
+    data
+  } = useQueryConsole()
 
-  async function executeQuery() {
-    setLoading(true)
-    // Mock execution for now
-    setTimeout(() => {
-      setResults({
-        columns: ['id', 'label', 'type'],
-        rows: [
-          ['disease:influenza_A', 'Influenza A', 'Disease'],
-          ['disease:covid19', 'COVID-19', 'Disease'],
-        ],
-      })
-      setLoading(false)
-    }, 1000)
+  function handleExecute() {
+    if (query.trim()) {
+      execute(query, 'cypher')
+    }
+  }
+
+  function handleClear() {
+    setQuery('')
   }
 
   return (
@@ -50,43 +47,12 @@ export default function QueryPage() {
             </span>
           </h1>
           <p className="text-muted-foreground mt-4">
-            Execute custom SPARQL or Cypher queries against the knowledge graph
+            Execute custom Cypher queries against the Neo4j knowledge graph
           </p>
-        </motion.div>
-
-        {/* Query Type Selector */}
-        <motion.div
-          className="flex gap-2 mb-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-        >
-          <button
-            onClick={() => setQueryType('cypher')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              queryType === 'cypher'
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-                : 'bg-card/50 text-muted-foreground border border-border/50 hover:border-border'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Cypher (Neo4j)
-            </div>
-          </button>
-          <button
-            onClick={() => setQueryType('sparql')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              queryType === 'sparql'
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-                : 'bg-card/50 text-muted-foreground border border-border/50 hover:border-border'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Code className="h-4 w-4" />
-              SPARQL (RDF)
-            </div>
-          </button>
+          <div className="flex items-center gap-2 mt-2">
+            <Database className="h-4 w-4 text-cyan-400" />
+            <span className="text-sm text-cyan-400 font-medium">Cypher (Neo4j)</span>
+          </div>
         </motion.div>
 
         {/* Query Editor */}
@@ -94,15 +60,20 @@ export default function QueryPage() {
           className="mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
+          transition={{ delay: 0.1, duration: 0.4 }}
         >
           <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                handleExecute()
+              }
+            }}
             className="w-full h-48 p-4 bg-card/60 backdrop-blur-md border border-border/50 rounded-lg text-foreground font-mono text-sm 
                      focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all
                      placeholder:text-muted-foreground"
-            placeholder="Enter your query..."
+            placeholder="Enter your Cypher query... (Ctrl/Cmd + Enter to execute)"
           />
         </motion.div>
 
@@ -111,30 +82,58 @@ export default function QueryPage() {
           className="flex gap-4 mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
         >
           <Button
-            onClick={executeQuery}
-            disabled={loading}
+            onClick={handleExecute}
+            disabled={isLoading || !query.trim()}
             size="lg"
             className="bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
           >
             <Play className="h-4 w-4 mr-2" />
-            {loading ? 'Executing...' : 'Run Query'}
+            {isLoading ? 'Executing...' : 'Run Query'}
           </Button>
           <Button
-            onClick={() => setQuery('')}
+            onClick={handleClear}
             variant="outline"
             size="lg"
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear
           </Button>
+          {history.length > 0 && (
+            <Button
+              onClick={clearHistory}
+              variant="ghost"
+              size="lg"
+            >
+              Clear History ({history.length})
+            </Button>
+          )}
         </motion.div>
+
+        {/* Error Display */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-red-400 mb-1">Query Error</h4>
+                <p className="text-sm text-red-300">
+                  {error.message || 'Failed to execute query'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Results */}
         <AnimatePresence mode="wait">
-          {results && (
+          {data && (
             <motion.div
               key="results"
               initial={{ opacity: 0, y: 20 }}
@@ -145,43 +144,49 @@ export default function QueryPage() {
             >
               <div className="p-4 border-b border-border/50">
                 <h3 className="text-lg font-semibold text-foreground">Results</h3>
-                <p className="text-sm text-muted-foreground">{results.rows.length} rows</p>
+                <p className="text-sm text-muted-foreground">{data.count || data.rows?.length || 0} rows</p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/20">
-                    <tr>
-                      {results.columns.map((col) => (
-                        <th
-                          key={col}
-                          className="px-4 py-3 text-left text-sm font-medium text-foreground"
-                        >
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.rows.map((row, idx) => (
-                      <motion.tr
-                        key={idx}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05, duration: 0.3 }}
-                        className="border-t border-border/30 hover:bg-muted/20 transition-colors"
-                      >
-                        {row.map((cell, cellIdx) => (
-                          <td
-                            key={cellIdx}
-                            className="px-4 py-3 text-sm text-muted-foreground font-mono"
+                {data.rows && data.rows.length > 0 ? (
+                  <table className="w-full">
+                    <thead className="bg-muted/20">
+                      <tr>
+                        {data.columns.map((col) => (
+                          <th
+                            key={col}
+                            className="px-4 py-3 text-left text-sm font-medium text-foreground"
                           >
-                            {cell}
-                          </td>
+                            {col}
+                          </th>
                         ))}
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.rows.map((row, idx) => (
+                        <motion.tr
+                          key={idx}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.02, duration: 0.3 }}
+                          className="border-t border-border/30 hover:bg-muted/20 transition-colors"
+                        >
+                          {row.map((cell, cellIdx) => (
+                            <td
+                              key={cellIdx}
+                              className="px-4 py-3 text-sm text-muted-foreground font-mono"
+                            >
+                              {typeof cell === 'object' ? JSON.stringify(cell, null, 2) : String(cell)}
+                            </td>
+                          ))}
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No results returned
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -192,46 +197,57 @@ export default function QueryPage() {
           className="mt-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
         >
           <h3 className="text-xl font-semibold text-foreground mb-4">Example Queries</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <motion.div
-              className="p-4 bg-card/30 backdrop-blur-md border border-border/50 rounded-lg 
-                       hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 
-                       cursor-pointer group"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setQuery('MATCH (d:Disease) RETURN d LIMIT 20')}
-            >
-              <h4 className="font-medium text-foreground mb-2 group-hover:text-cyan-400 transition-colors duration-200">
-                Find all diseases
-              </h4>
-              <code className="text-xs text-muted-foreground font-mono">
-                MATCH (d:Disease) RETURN d LIMIT 20
-              </code>
-            </motion.div>
-            <motion.div
-              className="p-4 bg-card/30 backdrop-blur-md border border-border/50 rounded-lg 
-                       hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 
-                       cursor-pointer group"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.4 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setQuery('MATCH (d:Disease)-[r]-(n) RETURN d, type(r), n LIMIT 50')}
-            >
-              <h4 className="font-medium text-foreground mb-2 group-hover:text-cyan-400 transition-colors duration-200">
-                Disease relationships
-              </h4>
-              <code className="text-xs text-muted-foreground font-mono">
-                MATCH (d:Disease)-[r]-(n) RETURN d, type(r), n LIMIT 50
-              </code>
-            </motion.div>
+            {[
+              {
+                title: 'All Diseases',
+                query: 'MATCH (d:Disease) RETURN d.id, d.name, d.eradicated ORDER BY d.name LIMIT 20'
+              },
+              {
+                title: 'COVID-19 Deaths by Country',
+                query: `MATCH (o:Outbreak)-[:OCCURRED_IN]->(c:Country)
+MATCH (o)-[:CAUSED_BY]->(d:Disease {id: 'covid19'})
+WHERE o.excessDeaths IS NOT NULL
+RETURN c.name, SUM(o.excessDeaths) as totalDeaths
+ORDER BY totalDeaths DESC LIMIT 10`
+              },
+              {
+                title: 'Malaria Cases Over Time',
+                query: `MATCH (o:Outbreak)-[:CAUSED_BY]->(d:Disease {id: 'malaria'})
+WHERE o.year >= 2015 AND o.cases IS NOT NULL
+RETURN o.year, SUM(o.cases) as totalCases
+ORDER BY o.year`
+              },
+              {
+                title: 'Countries with Most Outbreaks',
+                query: `MATCH (c:Country)<-[:OCCURRED_IN]-(o:Outbreak)
+RETURN c.name, c.code, COUNT(o) as outbreakCount
+ORDER BY outbreakCount DESC LIMIT 15`
+              }
+            ].map((example, idx) => (
+              <motion.div
+                key={idx}
+                className="p-4 bg-card/30 backdrop-blur-md border border-border/50 rounded-lg 
+                         hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 
+                         cursor-pointer group transition-all"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + idx * 0.1, duration: 0.4 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setQuery(example.query)}
+              >
+                <h4 className="font-medium text-foreground mb-2 group-hover:text-cyan-400 transition-colors duration-200">
+                  {example.title}
+                </h4>
+                <code className="text-xs text-muted-foreground font-mono block overflow-hidden text-ellipsis whitespace-nowrap">
+                  {example.query.split('\n')[0]}...
+                </code>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
       </div>

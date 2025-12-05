@@ -1,37 +1,48 @@
+/**
+ * useEntity Hook
+ * 
+ * React Query hook for fetching entity details
+ */
+
 'use client'
 
-import { useState, useEffect } from 'react'
-import { getEntity } from '../lib/api'
+import { useQuery } from '@tanstack/react-query'
+import { getEntity, getRelatedEntities } from '@/lib/api'
+import { queryKeys } from '@/lib/queryClient'
 
 /**
- * Custom hook for fetching entity data
+ * Fetch entity details with React Query
  * @param {string} id - Entity ID
- * @returns {Object} Entity state
+ * @param {Object} options - Fetch options
+ * @param {boolean} [options.includeRelated=false] - Include related entities
+ * @param {boolean} [options.enabled=true] - Enable query
+ * @returns {Object} React Query result
  */
-export default function useEntity(id) {
-  const [entity, setEntity] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    if (!id) return
-
-    async function fetchEntity() {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const data = await getEntity(id)
-        setEntity(data)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchEntity()
-  }, [id])
-
-  return { entity, loading, error }
+export function useEntity(id, { includeRelated = false, enabled = true } = {}) {
+  return useQuery({
+    queryKey: queryKeys.entity(id),
+    queryFn: () => getEntity(id, { includeRelated }),
+    enabled: enabled && Boolean(id),
+    staleTime: 10 * 60 * 1000, // 10 minutes (entities don't change often)
+  })
 }
+
+/**
+ * Fetch related entities with React Query
+ * @param {string} id - Entity ID
+ * @param {Object} options - Fetch options
+ * @param {number} [options.depth=1] - Relationship depth
+ * @param {number} [options.limit=20] - Max related entities
+ * @param {boolean} [options.enabled=true] - Enable query
+ * @returns {Object} React Query result
+ */
+export function useRelatedEntities(id, { depth = 1, limit = 20, enabled = true } = {}) {
+  return useQuery({
+    queryKey: queryKeys.relatedEntities(id),
+    queryFn: () => getRelatedEntities(id, depth, limit),
+    enabled: enabled && Boolean(id),
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+export default useEntity

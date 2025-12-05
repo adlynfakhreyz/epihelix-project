@@ -14,8 +14,9 @@ import { formatDate } from '../../lib/utils'
  * @param {Object} props
  * @param {Object} props.entity - Full entity data
  * @param {boolean} props.loading - Loading state
+ * @param {boolean} props.showRelations - Whether to display relations section (default: true)
  */
-export default function InfoBox({ entity, loading = false }) {
+export default function InfoBox({ entity, loading = false, showRelations = true }) {
   if (loading) {
     return (
       <Card>
@@ -42,6 +43,37 @@ export default function InfoBox({ entity, loading = false }) {
       </Card>
     )
   }
+
+  // Helper to format property keys
+  const formatKey = (key) => {
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  // Helper to format property values
+  const formatValue = (value) => {
+    if (value === null || value === undefined) return 'N/A'
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+    if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return formatDate(value)
+    }
+    if (Array.isArray(value)) {
+      return value.join(', ')
+    }
+    if (typeof value === 'number') {
+      return value.toLocaleString()
+    }
+    return String(value)
+  }
+
+  // Skip these properties from display (meta/technical fields)
+  const skipProperties = ['enriched', 'enrichedAt', 'dbpediaEnriched', 'externalSource', 
+                          'wikidataId', 'dbpediaUri', 'wikipediaUrl', 'dataSource', 'embedding']
 
   return (
     <motion.div {...fadeIn} className="space-y-6">
@@ -72,76 +104,133 @@ export default function InfoBox({ entity, loading = false }) {
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(entity.properties).map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <dt className="text-sm text-muted-foreground capitalize mb-1">
-                    {key.replace(/([A-Z])/g, ' $1').trim()}
-                  </dt>
-                  <dd className="text-foreground font-medium">
-                    {typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)
-                      ? formatDate(value)
-                      : String(value)}
-                  </dd>
-                </div>
-              ))}
+              {Object.entries(entity.properties)
+                .filter(([key]) => !skipProperties.includes(key))
+                .map(([key, value]) => (
+                  <div key={key} className="flex flex-col space-y-1">
+                    <dt className="text-sm text-muted-foreground font-medium">
+                      {formatKey(key)}
+                    </dt>
+                    <dd className="text-foreground">
+                      {formatValue(value)}
+                    </dd>
+                  </div>
+                ))}
             </dl>
           </CardContent>
         </Card>
       )}
 
       {/* Relations */}
-      {entity.relations && entity.relations.length > 0 && (
+      {showRelations && entity.relations && entity.relations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Relations</CardTitle>
+            <CardTitle>
+              Relationships ({entity.relations.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {entity.relations.map((rel, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg border border-border"
-                >
-                  <span className="text-sm text-muted-foreground font-mono">{rel.pred}</span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  <a
-                    href={`/entity/${rel.obj.id}`}
-                    className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+            <div className="space-y-2">
+              {entity.relations.map((rel, idx) => {
+                const isOutgoing = rel.direction === 'outgoing'
+                const relationLabel = rel.predicate
+                  .replace(/_/g, ' ')
+                  .toLowerCase()
+                  .replace(/\b\w/g, l => l.toUpperCase())
+                
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50 
+                             hover:border-cyan-500/30 hover:bg-muted/50 transition-all group"
                   >
-                    {rel.obj.label}
-                  </a>
-                </div>
-              ))}
+                    {!isOutgoing && (
+                      <span className="text-xs px-2 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded">
+                        ← incoming
+                      </span>
+                    )}
+                    <span className="text-sm text-muted-foreground font-medium">
+                      {relationLabel}
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-cyan-400 transition-colors" />
+                    <a
+                      href={`/entity/${rel.object.id}`}
+                      className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium flex items-center gap-2"
+                    >
+                      {rel.object.label}
+                      <Badge variant="outline" className="text-xs">
+                        {rel.object.type}
+                      </Badge>
+                    </a>
+                    {isOutgoing && (
+                      <span className="text-xs px-2 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded ml-auto">
+                        outgoing →
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Provenance */}
-      {entity.provenance && entity.provenance.length > 0 && (
+      {/* Data Source Info */}
+      {entity.properties && (entity.properties.wikidataId || entity.properties.dbpediaUri || entity.properties.dataSource) && (
         <Card>
           <CardHeader>
             <CardTitle>Data Sources</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {entity.provenance.map((prov, idx) => (
-                <div key={idx} className="flex items-start gap-2 text-sm">
-                  <span className="font-medium text-foreground">{prov.source}</span>
-                  {prov.uri && (
-                    <a
-                      href={prov.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-cyan-400 hover:underline inline-flex items-center gap-1"
-                    >
-                      View source
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                  {prov.query && <span className="text-muted-foreground">({prov.query})</span>}
+              {entity.properties.dataSource && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="font-medium text-foreground">Internal Dataset:</span>
+                  <span className="text-muted-foreground">{entity.properties.dataSource}</span>
                 </div>
-              ))}
+              )}
+              {entity.properties.wikidataId && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="font-medium text-foreground">Wikidata:</span>
+                  <a
+                    href={`https://www.wikidata.org/wiki/${entity.properties.wikidataId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    {entity.properties.wikidataId}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              {entity.properties.dbpediaUri && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="font-medium text-foreground">DBpedia:</span>
+                  <a
+                    href={entity.properties.dbpediaUri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    View on DBpedia
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              {entity.properties.wikipediaUrl && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="font-medium text-foreground">Wikipedia:</span>
+                  <a
+                    href={entity.properties.wikipediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    View article
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -158,18 +247,13 @@ InfoBox.propTypes = {
     properties: PropTypes.object,
     relations: PropTypes.arrayOf(
       PropTypes.shape({
-        pred: PropTypes.string,
-        obj: PropTypes.shape({
+        predicate: PropTypes.string,
+        direction: PropTypes.string,
+        object: PropTypes.shape({
           id: PropTypes.string,
           label: PropTypes.string,
+          type: PropTypes.string,
         }),
-      })
-    ),
-    provenance: PropTypes.arrayOf(
-      PropTypes.shape({
-        source: PropTypes.string,
-        uri: PropTypes.string,
-        query: PropTypes.string,
       })
     ),
   }),

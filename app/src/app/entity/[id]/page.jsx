@@ -1,14 +1,17 @@
 'use client'
 
 import React from 'react'
+import { use } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import InfoBox from '../../../components/InfoBox/InfoBox'
-import useEntity from '../../../hooks/useEntity'
+import { useEntity } from '../../../hooks/useEntity'
 
 export default function EntityPage() {
   const params = useParams()
-  const { entity, loading, error } = useEntity(params.id)
+  const entityId = params.id
+  
+  const { data: entity, isLoading: loading, error } = useEntity(entityId)
 
   return (
     <main className="flex-1 py-8 md:py-12">
@@ -29,7 +32,9 @@ export default function EntityPage() {
         {/* Error State */}
         {error && (
           <div className="p-4 md:p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
-            <p className="text-sm sm:text-base text-destructive-foreground">Error loading entity: {error}</p>
+            <p className="text-sm sm:text-base text-destructive-foreground">
+              Error loading entity: {error?.message || String(error)}
+            </p>
           </div>
         )}
 

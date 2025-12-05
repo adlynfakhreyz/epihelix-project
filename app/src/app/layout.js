@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/Shared/Header";
 import { AnimatedGraphBackground } from "@/components/Shared/AnimatedGraphBackground";
 import { LayoutWrapper } from "@/components/Shared/LayoutWrapper";
+import { QueryProvider } from "@/components/Providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,14 +26,16 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        {/* Animated Graph Background */}
-        <AnimatedGraphBackground />
-        
-        {/* Content Layer */}
-        <div className="relative z-10 flex flex-col min-h-screen">
-          <Header />
-          <LayoutWrapper>{children}</LayoutWrapper>
-        </div>
+        <QueryProvider>
+          {/* Animated Graph Background */}
+          <AnimatedGraphBackground />
+          
+          {/* Content Layer */}
+          <div className="relative z-10 flex flex-col min-h-screen">
+            <Header />
+            <LayoutWrapper>{children}</LayoutWrapper>
+          </div>
+        </QueryProvider>
       </body>
     </html>
   );
