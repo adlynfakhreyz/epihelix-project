@@ -68,6 +68,7 @@ class WikidataEnricher:
                ?continent ?continentLabel ?coords ?iso2
                ?gdp ?lifeExpectancy ?area ?officialLanguage ?officialLanguageLabel
                ?borderingCountry ?borderingCountryLabel ?borderingCountryIso3
+               ?article
         WHERE {{
           ?country wdt:P298 "{country_code}" .  # ISO 3166-1 alpha-3 code
 
@@ -80,6 +81,12 @@ class WikidataEnricher:
           OPTIONAL {{ ?country wdt:P2250 ?lifeExpectancy . }}
           OPTIONAL {{ ?country wdt:P2046 ?area . }}  # Area in km²
           OPTIONAL {{ ?country wdt:P37 ?officialLanguage . }}
+
+          # Get English Wikipedia article URL
+          OPTIONAL {{
+            ?article schema:about ?country ;
+                     schema:isPartOf <https://en.wikipedia.org/> .
+          }}
 
           # Bordering countries
           OPTIONAL {{
@@ -121,8 +128,19 @@ class WikidataEnricher:
                         'name': border_name
                     })
 
+        # Extract Wikipedia article URL and construct DBpedia URI
+        wikipedia_url = data.get('article', {}).get('value')
+        dbpedia_uri = None
+        if wikipedia_url:
+            # Convert Wikipedia URL to DBpedia URI
+            # Example: https://en.wikipedia.org/wiki/Germany -> http://dbpedia.org/resource/Germany
+            article_title = wikipedia_url.split('/wiki/')[-1]
+            dbpedia_uri = f"http://dbpedia.org/resource/{article_title}"
+
         enrichment = {
             'wikidata_id': data['country']['value'].split('/')[-1],
+            'wikipedia_url': wikipedia_url,
+            'dbpedia_uri': dbpedia_uri,
             'population': int(float(data['population']['value'])) if 'population' in data else None,
             'capital': data.get('capitalLabel', {}).get('value'),
             'continent': data.get('continentLabel', {}).get('value'),
@@ -180,6 +198,8 @@ class WikidataEnricher:
                 update_query = """
                 MATCH (c:Country {code: $code})
                 SET c.wikidataId = $wikidata_id,
+                    c.wikipediaUrl = $wikipedia_url,
+                    c.dbpediaUri = $dbpedia_uri,
                     c.population = $population,
                     c.capital = $capital,
                     c.continent = $continent,
@@ -197,6 +217,8 @@ class WikidataEnricher:
                 params = {
                     'code': country_code,
                     'wikidata_id': enrichment.get('wikidata_id'),
+                    'wikipedia_url': enrichment.get('wikipedia_url'),
+                    'dbpedia_uri': enrichment.get('dbpedia_uri'),
                     'population': enrichment.get('population'),
                     'capital': enrichment.get('capital'),
                     'continent': enrichment.get('continent'),

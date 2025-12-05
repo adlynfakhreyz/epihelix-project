@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
  * For free-form query console feature
  */
 
-const FASTAPI_URL = process.env.FASTAPI_URL || 'https://epihelix-api.vercel.app:8000'
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
 
 export async function POST(request) {
   try {
@@ -17,6 +17,7 @@ export async function POST(request) {
     // Validation
     if (!query || query.trim().length === 0) {
       return NextResponse.json(
+        
         { error: 'query is required' },
         { status: 400 }
       )

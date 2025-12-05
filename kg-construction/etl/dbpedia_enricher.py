@@ -53,49 +53,58 @@ class DBpediaEnricher:
                     logger.error(f"SPARQL query failed after {max_retries} attempts")
                     return None
 
-    def enrich_disease_from_dbpedia(self, disease_name: str, disease_id: str):
+    def enrich_disease_from_dbpedia(self, disease_name: str, disease_id: str, alternative_names: List[str] = None):
         """
         Fetch disease information from DBpedia
 
         Args:
-            disease_name: Disease name (e.g., 'Cholera')
+            disease_name: Primary disease name (e.g., 'Cholera')
             disease_id: Internal disease ID
+            alternative_names: Alternative names to try if primary fails
         """
         logger.info(f"Enriching {disease_name} from DBpedia...")
 
-        query = f"""
-        PREFIX dbo: <http://dbpedia.org/ontology/>
-        PREFIX dbp: <http://dbpedia.org/property/>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        # Try primary name first, then alternatives
+        names_to_try = [disease_name] + (alternative_names or [])
 
-        SELECT DISTINCT ?disease ?abstract ?wikipedia ?thumbnail
-               ?causativeAgent ?specialty ?prevention
-        WHERE {{
-          # Find disease by name
-          ?disease a dbo:Disease ;
-                   rdfs:label "{disease_name}"@en .
+        for name in names_to_try:
+            query = f"""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-          # Get abstract (description)
-          OPTIONAL {{ ?disease dbo:abstract ?abstract .
-                      FILTER(LANG(?abstract) = "en") }}
+            SELECT DISTINCT ?disease ?abstract ?wikipedia ?thumbnail
+                   ?causativeAgent ?specialty ?prevention
+            WHERE {{
+              # Find disease by name
+              ?disease a dbo:Disease ;
+                       rdfs:label "{name}"@en .
 
-          # Get Wikipedia URL
-          OPTIONAL {{ ?disease foaf:isPrimaryTopicOf ?wikipedia . }}
+              # Get abstract (description)
+              OPTIONAL {{ ?disease dbo:abstract ?abstract .
+                          FILTER(LANG(?abstract) = "en") }}
 
-          # Get thumbnail image
-          OPTIONAL {{ ?disease dbo:thumbnail ?thumbnail . }}
+              # Get Wikipedia URL
+              OPTIONAL {{ ?disease foaf:isPrimaryTopicOf ?wikipedia . }}
 
-          # Get medical information
-          OPTIONAL {{ ?disease dbp:causes ?causativeAgent . }}
-          OPTIONAL {{ ?disease dbo:medicalSpecialty ?specialty . }}
-          OPTIONAL {{ ?disease dbp:prevention ?prevention . }}
-        }}
-        LIMIT 5
-        """
+              # Get thumbnail image
+              OPTIONAL {{ ?disease dbo:thumbnail ?thumbnail . }}
 
-        results = self._execute_sparql(query)
-        if not results or not results['results']['bindings']:
-            logger.warning(f"No DBpedia results for {disease_name}")
+              # Get medical information
+              OPTIONAL {{ ?disease dbp:causes ?causativeAgent . }}
+              OPTIONAL {{ ?disease dbo:medicalSpecialty ?specialty . }}
+              OPTIONAL {{ ?disease dbp:prevention ?prevention . }}
+            }}
+            LIMIT 5
+            """
+
+            results = self._execute_sparql(query)
+            if results and results['results']['bindings']:
+                # Found results with this name
+                break
+        else:
+            # No results found with any name
+            logger.warning(f"No DBpedia results for {disease_name} (tried: {', '.join(names_to_try)})")
             return
 
         data = results['results']['bindings'][0]
@@ -131,40 +140,69 @@ class DBpediaEnricher:
 
         logger.info(f"✓ {disease_name} enriched from DBpedia")
 
-    def enrich_country_demographics(self, country_code: str):
+    def enrich_country_demographics(self, country_code: str, country_name: str, dbpedia_uri: str = None):
         """
         Fetch demographic and geographic data from DBpedia
 
         Args:
-            country_code: ISO 3166-1 alpha-2 country code
+            country_code: ISO 3166-1 alpha-3 country code
+            country_name: Full country name
+            dbpedia_uri: DBpedia resource URI (from Wikidata enrichment, preferred)
         """
-        logger.info(f"Enriching country {country_code} from DBpedia...")
+        logger.info(f"Enriching country {country_name} ({country_code}) from DBpedia...")
 
-        # DBpedia uses country names, so we need to query by ISO code first
-        query = f"""
-        PREFIX dbo: <http://dbpedia.org/ontology/>
-        PREFIX dbp: <http://dbpedia.org/property/>
+        # If we have the DBpedia URI from Wikidata, use it directly (most reliable)
+        if dbpedia_uri:
+            query = f"""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
 
-        SELECT DISTINCT ?country ?abstract ?thumbnail ?populationDensity
-               ?governmentType ?currency ?timeZone
-        WHERE {{
-          ?country a dbo:Country ;
-                   dbo:iso31661Code "{country_code}" .
+            SELECT DISTINCT ?country ?abstract ?thumbnail ?populationDensity
+                   ?governmentType ?currency ?timeZone ?capital ?areaTotal
+            WHERE {{
+              BIND(<{dbpedia_uri}> AS ?country)
 
-          OPTIONAL {{ ?country dbo:abstract ?abstract .
-                      FILTER(LANG(?abstract) = "en") }}
-          OPTIONAL {{ ?country dbo:thumbnail ?thumbnail . }}
-          OPTIONAL {{ ?country dbo:populationDensity ?populationDensity . }}
-          OPTIONAL {{ ?country dbo:governmentType ?governmentType . }}
-          OPTIONAL {{ ?country dbo:currency ?currency . }}
-          OPTIONAL {{ ?country dbp:timeZone ?timeZone . }}
-        }}
-        LIMIT 1
-        """
+              OPTIONAL {{ ?country dbo:abstract ?abstract .
+                          FILTER(LANG(?abstract) = "en") }}
+              OPTIONAL {{ ?country dbo:thumbnail ?thumbnail . }}
+              OPTIONAL {{ ?country dbo:populationDensity ?populationDensity . }}
+              OPTIONAL {{ ?country dbo:governmentType ?governmentType . }}
+              OPTIONAL {{ ?country dbo:currency ?currency . }}
+              OPTIONAL {{ ?country dbp:timeZone ?timeZone . }}
+              OPTIONAL {{ ?country dbo:capital ?capital . }}
+              OPTIONAL {{ ?country dbo:areaTotal ?areaTotal . }}
+            }}
+            LIMIT 1
+            """
+        else:
+            # Fallback: search by country name if no DBpedia URI available
+            query = f"""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT DISTINCT ?country ?abstract ?thumbnail ?populationDensity
+                   ?governmentType ?currency ?timeZone ?capital ?areaTotal
+            WHERE {{
+              ?country a dbo:Country ;
+                       rdfs:label "{country_name}"@en .
+
+              OPTIONAL {{ ?country dbo:abstract ?abstract .
+                          FILTER(LANG(?abstract) = "en") }}
+              OPTIONAL {{ ?country dbo:thumbnail ?thumbnail . }}
+              OPTIONAL {{ ?country dbo:populationDensity ?populationDensity . }}
+              OPTIONAL {{ ?country dbo:governmentType ?governmentType . }}
+              OPTIONAL {{ ?country dbo:currency ?currency . }}
+              OPTIONAL {{ ?country dbp:timeZone ?timeZone . }}
+              OPTIONAL {{ ?country dbo:capital ?capital . }}
+              OPTIONAL {{ ?country dbo:areaTotal ?areaTotal . }}
+            }}
+            LIMIT 1
+            """
 
         results = self._execute_sparql(query)
         if not results or not results['results']['bindings']:
-            logger.warning(f"No DBpedia results for country {country_code}")
+            logger.warning(f"No DBpedia results for country {country_name} ({country_code})")
             return
 
         data = results['results']['bindings'][0]
@@ -178,6 +216,8 @@ class DBpediaEnricher:
             c.governmentType = $government_type,
             c.currency = $currency,
             c.timeZone = $time_zone,
+            c.capital = $capital,
+            c.areaTotal = $area_total,
             c.dbpediaEnriched = true
         """
 
@@ -189,11 +229,13 @@ class DBpediaEnricher:
             'population_density': float(data.get('populationDensity', {}).get('value', 0)) if 'populationDensity' in data else None,
             'government_type': data.get('governmentType', {}).get('value'),
             'currency': data.get('currency', {}).get('value'),
-            'time_zone': data.get('timeZone', {}).get('value')
+            'time_zone': data.get('timeZone', {}).get('value'),
+            'capital': data.get('capital', {}).get('value'),
+            'area_total': float(data.get('areaTotal', {}).get('value', 0)) if 'areaTotal' in data else None
         }
 
         self.conn.execute_write(update_query, params)
-        logger.info(f"✓ Country {country_code} enriched from DBpedia")
+        logger.info(f"✓ Country {country_name} ({country_code}) enriched from DBpedia")
 
     def add_historical_pandemics(self):
         """
@@ -269,32 +311,33 @@ class DBpediaEnricher:
 
     def enrich_all_hpd_diseases(self):
         """Enrich all HPD diseases from DBpedia"""
+        # Disease mappings with alternative names for better DBpedia matching
         disease_mappings = {
             # From disease cases dataset
-            'cholera': 'Cholera',
-            'tuberculosis': 'Tuberculosis',
-            'malaria': 'Malaria',
-            'hiv_aids': 'HIV/AIDS',
-            'polio': 'Poliomyelitis',
-            'rabies': 'Rabies',
-            'smallpox': 'Smallpox',
-            'yaws': 'Yaws',
-            'guinea_worm': 'Dracunculiasis',
+            'cholera': ('Cholera', []),
+            'tuberculosis': ('Tuberculosis', []),
+            'malaria': ('Malaria', []),
+            'hiv_aids': ('HIV/AIDS', ['AIDS']),
+            'polio': ('Poliomyelitis', ['Polio']),
+            'rabies': ('Rabies', []),
+            'smallpox': ('Smallpox', []),
+            'yaws': ('Yaws', ['Framboesia']),
+            'guinea_worm': ('Dracunculiasis', ['Guinea worm disease']),
 
             # From vaccination dataset (vaccine-preventable diseases)
-            'diphtheria': 'Diphtheria',
-            'pertussis': 'Pertussis',
-            'tetanus': 'Tetanus',
-            'measles': 'Measles',
-            'hepatitis_b': 'Hepatitis B',
-            'haemophilus_influenzae': 'Haemophilus influenzae',
-            'rotavirus': 'Rotavirus',
-            'pneumonia': 'Pneumonia',
-            'rubella': 'Rubella',
-            'mumps': 'Mumps',
-            'yellow_fever': 'Yellow fever',
-            'japanese_encephalitis': 'Japanese encephalitis',
-            'typhoid': 'Typhoid fever'
+            'diphtheria': ('Diphtheria', []),
+            'pertussis': ('Pertussis', ['Whooping cough']),
+            'tetanus': ('Tetanus', []),
+            'measles': ('Measles', []),
+            'hepatitis_b': ('Hepatitis B', []),
+            'haemophilus_influenzae': ('Haemophilus influenzae', ['Hib disease']),
+            'rotavirus': ('Rotavirus', ['Rotavirus infection']),
+            'pneumonia': ('Pneumonia', []),
+            'rubella': ('Rubella', ['German measles']),
+            'mumps': ('Mumps', []),
+            'yellow_fever': ('Yellow fever', []),
+            'japanese_encephalitis': ('Japanese encephalitis', []),
+            'typhoid': ('Typhoid fever', [])
         }
 
         # Query database to get existing diseases
@@ -307,7 +350,7 @@ class DBpediaEnricher:
         enriched_count = 0
         skipped_count = 0
 
-        for disease_id, disease_name in disease_mappings.items():
+        for disease_id, (disease_name, alternatives) in disease_mappings.items():
             # Only enrich if disease exists in database
             if disease_id not in existing_disease_ids:
                 logger.debug(f"Skipping {disease_id} (not in database)")
@@ -315,11 +358,12 @@ class DBpediaEnricher:
                 continue
 
             try:
-                self.enrich_disease_from_dbpedia(disease_name, disease_id)
+                self.enrich_disease_from_dbpedia(disease_name, disease_id, alternatives)
                 enriched_count += 1
                 time.sleep(1)  # Rate limiting
             except Exception as e:
                 logger.error(f"Failed to enrich {disease_name}: {e}")
+                skipped_count += 1
 
         logger.info(f"✓ DBpedia disease enrichment complete! Enriched: {enriched_count}, Skipped: {skipped_count}")
 
@@ -333,15 +377,18 @@ class DBpediaEnricher:
             'OWID_USS', 'OWID_CSK'
         }
 
-        # Get all countries from Neo4j
-        query = "MATCH (c:Country) RETURN c.code as code"
+        # Get all countries from Neo4j with code, name, and DBpedia URI (if available from Wikidata)
+        query = "MATCH (c:Country) RETURN c.code as code, c.name as name, c.dbpediaUri as dbpedia_uri"
         countries = self.conn.execute_query(query)
 
         enriched_count = 0
         skipped_count = 0
+        used_uri_count = 0
 
         for country in countries:
             country_code = country['code']
+            country_name = country['name']
+            dbpedia_uri = country.get('dbpedia_uri')
 
             # Skip special OWID codes
             if country_code in SKIP_CODES:
@@ -350,13 +397,20 @@ class DBpediaEnricher:
                 continue
 
             try:
-                self.enrich_country_demographics(country_code)
+                if dbpedia_uri:
+                    logger.debug(f"Using DBpedia URI from Wikidata: {dbpedia_uri}")
+                    used_uri_count += 1
+                else:
+                    logger.debug(f"No DBpedia URI found, searching by name")
+
+                self.enrich_country_demographics(country_code, country_name, dbpedia_uri)
                 enriched_count += 1
                 time.sleep(1)  # Rate limiting
             except Exception as e:
-                logger.error(f"Failed to enrich country {country_code}: {e}")
+                logger.error(f"Failed to enrich country {country_name} ({country_code}): {e}")
+                skipped_count += 1
 
-        logger.info(f"✓ DBpedia country enrichment complete! Enriched: {enriched_count}, Skipped: {skipped_count}")
+        logger.info(f"✓ DBpedia country enrichment complete! Enriched: {enriched_count} ({used_uri_count} via URI), Skipped: {skipped_count}")
 
     def enrich_all(self):
         """Run all DBpedia enrichment methods"""
