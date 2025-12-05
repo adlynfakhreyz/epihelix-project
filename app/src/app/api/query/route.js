@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
  * For free-form query console feature
  */
 
-const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000/api'
 
 export async function POST(request) {
   try {
