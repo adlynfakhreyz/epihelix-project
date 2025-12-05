@@ -489,3 +489,4 @@ MIT License - see LICENSE file for details
 - **Knowledge Graphs**: Wikidata, DBpedia
 - **UI**: shadcn/ui, Tailwind CSS, Framer Motion
 - **Backend**: FastAPI, Neo4j, HuggingFace
+
