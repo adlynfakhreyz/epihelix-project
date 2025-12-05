@@ -1,6 +1,6 @@
 # EpiHelix - 2-Minute Quickstart
 
-Get the full stack running locally in 2 minutes, or deploy to Railway in 5 minutes.
+Get the full stack running locally in 2 minutes, or deploy to Vercel in 5 minutes.
 
 ## Prerequisites
 
@@ -11,8 +11,9 @@ Get the full stack running locally in 2 minutes, or deploy to Railway in 5 minut
 
 **Production Deployment:**
 - GitHub account
-- Railway account (free tier)
+- Vercel account (free tier)
 - Neo4j Aura account (free tier)
+- Kaggle account (optional - for GPU acceleration)
 
 ---
 
@@ -55,7 +56,9 @@ npm run dev
 
 ---
 
-## ☁️ Option 2: Railway Deployment (Production)
+## ☁️ Option 2: Vercel Deployment (Production)
+
+Deploy both frontend and backend to Vercel as a unified serverless application.
 
 ### Step 1: Setup Neo4j Aura (2 minutes)
 
@@ -90,72 +93,93 @@ python load_all_data.py
 ✅ Loaded 30,000+ vaccination records
 ```
 
-### Step 3: Deploy Backend to Railway (3 minutes)
+### Step 3: Deploy FastAPI Backend to Vercel (3 minutes)
 
 1. **Fork Repository** (if not done already)
    - Go to https://github.com/YOUR_USERNAME/epihelix-project
    - Click **Fork** (top right)
 
-2. **Deploy Backend to Railway**
-   - Go to [Railway Dashboard](https://railway.app/dashboard)
-   - Click **"New Project"** → **"Deploy from GitHub repo"**
-   - Choose your forked `epihelix-project`
-   - **IMPORTANT**: After deployment, go to **Service Settings** → **Root Directory** → Set to `backend`
-   - Click **Save** and redeploy
+2. **Deploy Backend to Vercel**
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+   - Click **"Add New..."** → **"Project"**  
+   - Import your forked `epihelix-project` repository
+   - Configure:
+     - **Project Name**: `epihelix-api` (or your choice)
+     - **Framework Preset**: Other
+     - **Root Directory**: `backend`
+   - Click **Deploy**
 
 3. **Configure Backend Environment Variables**
    
-   In Railway → Service → Variables:
+   In Vercel → Project (epihelix-api) → Settings → Environment Variables:
    ```bash
    NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
    NEO4J_USER=neo4j
    NEO4J_PASSWORD=<your-aura-password>
+   NEO4J_DATABASE=neo4j
+   
+   # CORS - Allow frontend domain
+   CORS_ORIGINS=["https://epihelix.vercel.app","https://*.vercel.app"]
    
    # AI Providers (choose one)
-   RERANKER_PROVIDER=huggingface
-   EMBEDDER_PROVIDER=huggingface
-   LLM_PROVIDER=huggingface
+   # Option 1: Kaggle GPU (recommended for performance)
+   KAGGLE_AI_ENDPOINT=https://your-ngrok-url.ngrok-free.app
+   RERANKER_PROVIDER=kaggle
+   EMBEDDER_PROVIDER=kaggle
+   LLM_PROVIDER=kaggle
+   CHATBOT_LLM_PROVIDER=kaggle
+   
+   # Option 2: HuggingFace CPU (no setup needed, slower)
+   # RERANKER_PROVIDER=huggingface
+   # EMBEDDER_PROVIDER=huggingface
+   # LLM_PROVIDER=huggingface
+   # CHATBOT_LLM_PROVIDER=huggingface
    ```
 
 4. **Get Backend URL**
-   - After deployment: `https://<your-backend>.up.railway.app`
-   - Test: `curl https://<your-backend>.up.railway.app/health`
+   - After deployment: `https://epihelix-api.vercel.app`
+   - Test health: `curl https://epihelix-api.vercel.app/health`
 
 ### Step 4: Deploy Frontend to Vercel (2 minutes)
 
-1. **Connect to Vercel** (already configured)
+1. **Deploy Frontend**
    - Go to [Vercel Dashboard](https://vercel.com/dashboard)
-   - Import your forked `epihelix-project`
-   - Vercel auto-detects `app/` directory as Next.js project
+   - Click **"Add New..."** → **"Project"**
+   - Import same forked `epihelix-project` repository
+   - Configure:
+     - **Project Name**: `epihelix` (or your choice)
+     - **Framework Preset**: Next.js (auto-detected)
+     - **Root Directory**: `app`
+   - Click **Deploy**
 
-2. **Configure Environment Variable**
+2. **Configure Frontend Environment Variable**
    
-   In Vercel → Project → Settings → Environment Variables:
+   In Vercel → Project (epihelix) → Settings → Environment Variables:
    ```bash
-   NEXT_PUBLIC_API_URL=https://<your-backend>.up.railway.app
+   FASTAPI_URL=https://epihelix-api.vercel.app
    ```
    
-   Replace `<your-backend>` with your Railway backend URL.
+   Replace with your actual backend URL from Step 3.
 
-3. **Deploy**
-   - Vercel auto-deploys from GitHub pushes
-   - Production URL: `https://<your-project>.vercel.app`
+3. **Redeploy Frontend**
+   - Go to Deployments → Click **"..."** on latest → **Redeploy**
+   - This ensures environment variable is applied
 
 4. **Test Full Stack**
    ```bash
    # Visit frontend
-   open https://<your-project>.vercel.app
+   open https://epihelix.vercel.app
    
-   # Or test API connection
-   curl https://<your-project>.vercel.app/api/search?q=malaria
+   # Test search
+   curl https://epihelix.vercel.app/api/search?q=malaria
    ```
 
 **Done!** 🚀 Your app is live with:
-- ✅ **Frontend**: Vercel (optimized Next.js hosting, global CDN)
-- ✅ **Backend**: Railway (FastAPI with auto-scaling)
+- ✅ **Frontend**: Vercel (Next.js with global CDN)
+- ✅ **Backend**: Vercel (FastAPI serverless functions)
 - ✅ Auto-deployment on `git push`
 - ✅ Free SSL certificates
-- ✅ Custom domains available
+- ✅ **100% Free Tier** (Vercel free + Neo4j Aura free)
 
 ---
 
@@ -189,14 +213,16 @@ KAGGLE_AI_ENDPOINT=https://xxxx.ngrok-free.app
 RERANKER_PROVIDER=kaggle
 EMBEDDER_PROVIDER=kaggle
 LLM_PROVIDER=kaggle
+CHATBOT_LLM_PROVIDER=kaggle
 ```
 
-**Railway (Backend):**
-- Add `KAGGLE_AI_ENDPOINT` to Railway environment variables
-- Update `*_PROVIDER` variables to `kaggle`
+**Vercel Backend (epihelix-api):**
+- Go to Vercel Dashboard → `epihelix-api` Project → Settings → Environment Variables
+- Add `KAGGLE_AI_ENDPOINT=https://xxxx.ngrok-free.app`
+- Update `RERANKER_PROVIDER=kaggle`, `EMBEDDER_PROVIDER=kaggle`, `LLM_PROVIDER=kaggle`, `CHATBOT_LLM_PROVIDER=kaggle`
 - Redeploy (auto-triggers on variable change)
 
-**Vercel (Frontend):**
+**Vercel Frontend (epihelix):**
 - No changes needed (frontend doesn't call Kaggle directly)
 
 **Performance Boost:**
@@ -235,9 +261,13 @@ HUGGING_FACE_LLM=google/flan-t5-base
 ```
 
 ### Frontend
-Next.js automatically uses `http://localhost:8000` in development. For production:
+For local development, Next.js API routes proxy to backend:
 ```bash
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+# Defaults to localhost:8000
+# No config needed for development
+
+# Production: Set in Vercel environment variables
+FASTAPI_URL=https://epihelix-api.vercel.app
 ```
 
 ## 📊 What Gets Loaded
@@ -341,51 +371,50 @@ python load_all_data.py
    - Modify UI theme (see `app/src/app/globals.css`)
    - Create custom Cypher queries (see `backend/app/query_examples.py`)
 4. ⚠️ **Deploy**:
-   - Railway + Vercel (see above)
+   - Vercel (see above for production deployment)
    - Or Docker Compose on VPS
 
 ---
 
 ## 🔄 Advanced: Continuous Deployment
 
-**Backend (Railway):**
+**Backend (Vercel):**
 - Auto-deploys on push to `main` branch
-- Build logs: Railway Dashboard → Deployments
-- Typical build time: ~2-3 minutes
+- Build logs: Vercel Dashboard → `epihelix-api` → Deployments
+- Typical build time: ~1-2 minutes
 
 **Frontend (Vercel):**
 - Auto-deploys on push to `main` branch
 - Preview deployments for PRs
-- Build logs: Vercel Dashboard → Deployments
+- Build logs: Vercel Dashboard → `epihelix` → Deployments
 
 ```bash
 git add .
 git commit -m "Update feature"
 git push origin main
-# Both services auto-deploy
+# Both Vercel projects auto-deploy
 ```
 
 ### Custom Domains
 
-**Backend (Railway):**
-1. Railway Dashboard → Service → Settings → Domains
-2. Click **"Add Domain"**
-3. Enter: `api.yourdomain.com`
-4. Add DNS CNAME: `api.yourdomain.com → <railway-domain>`
+**Backend (Vercel):**
+1. Vercel Dashboard → `epihelix-api` Project → Settings → Domains
+2. Add domain: `api.yourdomain.com`
+3. Add DNS CNAME: `api.yourdomain.com → cname.vercel-dns.com`
 
 **Frontend (Vercel):**
-1. Vercel Dashboard → Project → Settings → Domains
+1. Vercel Dashboard → `epihelix` Project → Settings → Domains
 2. Add domain: `yourdomain.com`
 3. Follow Vercel's DNS instructions
 
 ### Monitoring & Logs
 
-**Railway Dashboard:**
-- **Metrics**: CPU, Memory, Network usage
-- **Logs**: Real-time application logs
+**Vercel Backend Dashboard:**
+- **Functions**: Runtime logs, cold starts
 - **Deployments**: Build history and rollback
+- **Analytics**: API request counts
 
-**Vercel Dashboard:**
+**Vercel Frontend Dashboard:**
 - **Analytics**: Visitor stats, page views
 - **Logs**: Function logs and errors
 - **Performance**: Core Web Vitals
@@ -394,7 +423,7 @@ git push origin main
 
 Backend exposes `/health` endpoint:
 ```bash
-curl https://<backend>.up.railway.app/health
+curl https://epihelix-api.vercel.app/health
 ```
 
 Response:
@@ -413,40 +442,44 @@ Response:
 ### Common Deployment Issues
 
 **Backend Build Failed:**
-- Check Railway build logs
+- Check Vercel deployment logs
 - Verify `requirements.txt` is up-to-date
-- Ensure Python 3.11 (set in `backend/Dockerfile`)
+- Ensure Python 3.11 in `backend/Dockerfile`
 
-**Backend Crashes on Start:**
-- Verify Neo4j Aura URI is correct (`neo4j+s://...`)
-- Check all required environment variables are set
-- Test connection: Railway logs will show Neo4j connection errors
+**Backend Serverless Timeout (10s default):**
+- Expensive queries may timeout
+- Consider caching results or using background jobs
+- Upgrade to Vercel Pro for 60s timeout
 
-**Frontend Can't Reach Backend:**
-- Verify `NEXT_PUBLIC_API_URL` in Vercel settings
-- Should be: `https://<your-backend>.up.railway.app`
-- Redeploy frontend after changing env vars
+**Backend Cold Starts:**
+- First request may take 2-5 seconds
+- Use Vercel Edge Cache or keep-alive pings
+
+**Frontend Can't Connect to Backend:**
+- Verify `FASTAPI_URL` environment variable in Vercel Frontend settings
+- Check backend CORS origins include frontend domain
+- Test backend health: `curl https://epihelix-api.vercel.app/health`
 
 **Slow Performance:**
 - Default: HuggingFace CPU models (slow)
 - Solution: Switch to Kaggle GPU (see Optional section above)
-- Update Railway env vars: `KAGGLE_AI_ENDPOINT`, `*_PROVIDER=kaggle`
+- Update Vercel Backend env vars: `KAGGLE_AI_ENDPOINT`, `*_PROVIDER=kaggle`
 
 ### Cost Estimates
 
-**Monthly Costs:**
-- **Vercel Free**: $0 (unlimited bandwidth, sufficient for demos)
-- **Railway Hobby**: $5/month (backend only, 500 execution hours)
+**Monthly Costs (Free Tier):**
+- **Vercel Frontend**: $0 (100 GB bandwidth, 100 GB-hours serverless)
+- **Vercel Backend**: $0 (100 GB bandwidth, 100 GB-hours serverless)
 - **Neo4j Aura Free**: $0 (50k nodes, 175k relationships)
 - **Kaggle GPU**: $0 (30 hours/week free)
 
-**Total**: ~$5/month (or $0 with free tiers during development)
+**Total**: $0 (sufficient for demos and low-traffic apps)
 
 **Production (scaled):**
-- **Vercel Pro**: $20/month (team features, priority support)
-- **Railway Pro**: $20/month (unlimited execution, 99.99% SLA)
-- **Neo4j Aura Pro**: $65/month (200k nodes, 2M relationships)
-- **Total**: ~$105/month
+- **Vercel Pro (Both Projects)**: $40/month ($20 each, team features, 60s timeout)
+- **Neo4j Aura Professional**: $65/month (200k nodes, 2M relationships)
+- **Optional Dedicated AI**: $50-100/month (Replicate, OpenAI API)
+- **Total**: ~$105-$155/month
 
 ---
 

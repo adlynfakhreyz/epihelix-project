@@ -56,14 +56,6 @@ export default function EntityCard({ entity }) {
                   </div>
                 )}
               </div>
-
-              {entity.score && (
-                <div className="flex-shrink-0">
-                  <div className="text-sm font-medium text-cyan-400">
-                    {(entity.score * 100).toFixed(0)}%
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
