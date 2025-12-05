@@ -32,7 +32,7 @@ export async function POST(request) {
     }
 
     // Call FastAPI backend
-    const response = await fetch(`${FASTAPI_URL}/api/chat/`, {
+    const response = await fetch(`${FASTAPI_URL}/chat/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -92,7 +92,7 @@ export async function DELETE(request) {
     }
 
     // Call FastAPI backend to clear session
-    const response = await fetch(`${FASTAPI_URL}/api/chat/session/${session_id}`, {
+    const response = await fetch(`${FASTAPI_URL}/chat/session/${session_id}`, {
       method: 'DELETE',
     })
 
