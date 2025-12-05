@@ -14,7 +14,6 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/entities', label: 'Entities' },
   { href: '/search', label: 'Search' },
-  { href: '/heatmap', label: 'Heatmap' },
   { href: '/query', label: 'Query Console' },
   { href: '/chat', label: 'Chat' },
 ]
