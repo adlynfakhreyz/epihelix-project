@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
  * - Logging (development)
  */
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
 
 export async function GET(request) {
   try {
