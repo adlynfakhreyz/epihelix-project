@@ -100,7 +100,8 @@ python load_all_data.py
    - Go to [Railway Dashboard](https://railway.app/dashboard)
    - Click **"New Project"** → **"Deploy from GitHub repo"**
    - Choose your forked `epihelix-project`
-   - Railway detects `backend/` directory with `Dockerfile`
+   - **IMPORTANT**: After deployment, go to **Service Settings** → **Root Directory** → Set to `backend`
+   - Click **Save** and redeploy
 
 3. **Configure Backend Environment Variables**
    

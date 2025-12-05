@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server'
  * - Source citations from knowledge graph
  */
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
 
 export async function POST(request) {
   try {
