@@ -112,7 +112,7 @@ class Neo4jClient(KnowledgeGraphClient):
                     # Index all searchable text properties for comprehensive search
                     session.run("""
                         CREATE FULLTEXT INDEX entitySearch IF NOT EXISTS
-                        FOR (n:Country|Disease|Outbreak|VaccinationRecord|Organization|Vaccine|PandemicEvent)
+                        FOR (n:Country|Disease|Outbreak|VaccinationRecord|Organization|Vaccine)
                         ON EACH [n.name, n.fullName, n.label, n.description, n.summary, n.title, 
                                  n.code, n.iso_code, n.icd10, n.mesh, n.category, n.pathogen,
                                  n.causativeAgent, n.medicalSpecialty, n.prevention,

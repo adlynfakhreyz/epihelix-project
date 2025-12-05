@@ -51,20 +51,42 @@ export function useExecuteSPARQL(options = {}) {
  * @returns {Object} Query console state and methods
  */
 export function useQueryConsole() {
-  const [history, setHistory] = useState([])
+  // Load history from localStorage on mount
+  const [history, setHistory] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('query-history')
+        return saved ? JSON.parse(saved) : []
+      } catch (error) {
+        console.error('Failed to load query history:', error)
+        return []
+      }
+    }
+    return []
+  })
   
   const executeMutation = useExecuteQuery({
     onSuccess: (data, variables) => {
       // Add to history
-      setHistory(prev => [
-        ...prev,
-        {
-          query: variables.query,
-          type: variables.type,
-          result: data,
-          timestamp: new Date().toISOString(),
-        },
-      ])
+      const newEntry = {
+        query: variables.query,
+        type: variables.type,
+        result: data,
+        timestamp: new Date().toISOString(),
+      }
+      
+      setHistory(prev => {
+        const updated = [...prev, newEntry]
+        // Save to localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('query-history', JSON.stringify(updated))
+          } catch (error) {
+            console.error('Failed to save query history:', error)
+          }
+        }
+        return updated
+      })
     },
   })
 
@@ -77,6 +99,13 @@ export function useQueryConsole() {
 
   const clearHistory = useCallback(() => {
     setHistory([])
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('query-history')
+      } catch (error) {
+        console.error('Failed to clear query history:', error)
+      }
+    }
   }, [])
 
   return {

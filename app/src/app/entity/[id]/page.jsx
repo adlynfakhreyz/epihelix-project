@@ -2,13 +2,16 @@
 
 import React from 'react'
 import { use } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import InfoBox from '../../../components/InfoBox/InfoBox'
 import { useEntity } from '../../../hooks/useEntity'
 
 export default function EntityPage() {
   const params = useParams()
+  const router = useRouter()
   const entityId = params.id
   
   const { data: entity, isLoading: loading, error } = useEntity(entityId)
@@ -16,17 +19,29 @@ export default function EntityPage() {
   return (
     <main className="flex-1 py-8 md:py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+        {/* Back Button */}
+        <div className="mb-4 md:mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="text-muted-foreground hover:text-foreground -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
+
         {/* Breadcrumb */}
         <nav className="mb-4 md:mb-6 text-xs sm:text-sm">
           <Link href="/" className="text-cyan-400 hover:text-cyan-300 transition-colors">
             Home
           </Link>
           <span className="text-muted-foreground mx-2">/</span>
-          <Link href="/search" className="text-cyan-400 hover:text-cyan-300 transition-colors">
-            Search
+          <Link href="/entities" className="text-cyan-400 hover:text-cyan-300 transition-colors">
+            Entities
           </Link>
           <span className="text-muted-foreground mx-2">/</span>
-          <span className="text-muted-foreground">Entity</span>
+          <span className="text-muted-foreground">{entity?.label || 'Loading...'}</span>
         </nav>
 
         {/* Error State */}
@@ -40,21 +55,6 @@ export default function EntityPage() {
 
         {/* Entity Info */}
         <InfoBox entity={entity} loading={loading} />
-
-        {/* Actions */}
-        {entity && (
-          <div className="mt-6 flex gap-4">
-            <Link
-              href={`/graph/${entity.id}`}
-              className="px-4 py-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
-            >
-              View Graph
-            </Link>
-            <button className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors">
-              Export Data
-            </button>
-          </div>
-        )}
       </div>
     </main>
   )

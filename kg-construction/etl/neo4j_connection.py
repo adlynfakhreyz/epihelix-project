@@ -120,7 +120,6 @@ class Neo4jConnection:
             "CREATE INDEX outbreak_date IF NOT EXISTS FOR (o:Outbreak) ON (o.date)",
             "CREATE INDEX outbreak_year IF NOT EXISTS FOR (o:Outbreak) ON (o.year)",
             "CREATE INDEX vaccination_year IF NOT EXISTS FOR (v:VaccinationRecord) ON (v.year)",
-            "CREATE INDEX vaccination_vaccine IF NOT EXISTS FOR (v:VaccinationRecord) ON (v.vaccineName)",
         ]
 
         logger.info("Creating database indexes...")
@@ -144,8 +143,7 @@ class Neo4jConnection:
             'diseases': "MATCH (d:Disease) RETURN count(d) as count",
             'outbreaks': "MATCH (o:Outbreak) RETURN count(o) as count",
             'vaccination_records': "MATCH (v:VaccinationRecord) RETURN count(v) as count",
-            'organizations': "MATCH (o:Organization) RETURN count(o) as count",
-            'vaccines': "MATCH (v:Vaccine) RETURN count(v) as count",
+
             'relationships': "MATCH ()-[r]->() RETURN count(r) as count"
         }
 

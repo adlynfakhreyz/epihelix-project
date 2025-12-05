@@ -201,6 +201,12 @@ export default function Home() {
 
           {/* Quick Access Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link href="/entities">
+              <Button size="lg" variant="default" className="gap-2 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600">
+                <Database className="h-4 w-4" />
+                Browse Entities
+              </Button>
+            </Link>
             <Link href="/search">
               <Button size="lg" className="gap-2">
                 <Search className="h-4 w-4" />

@@ -20,6 +20,7 @@ import logging
 
 from .config.settings import settings
 from .core.dependencies import container
+from .routers import search, entity, query, admin, summary, heatmap
 from .routers import search, entity, query, admin, summary, chat
 
 # Configure logging
@@ -93,6 +94,10 @@ app.include_router(
     admin.router,
     prefix=f"{settings.api_prefix}/admin",
     tags=["admin"]
+)
+app.include_router(
+    heatmap.router,
+    tags=["heatmap"]
 )
 app.include_router(
     chat.router,

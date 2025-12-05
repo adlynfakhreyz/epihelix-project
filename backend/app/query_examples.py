@@ -183,18 +183,6 @@ MATCH (c1:Country)-[:BORDERS]-(c2:Country)
 RETURN c1.name, collect(c2.name) as borderingCountries
 LIMIT 20
         """.strip()
-    },
-    {
-        "name": "Historical Pandemic Events",
-        "description": "Get historical pandemics from DBpedia",
-        "category": "Historical",
-        "query": """
-MATCH (pe:PandemicEvent)
-OPTIONAL MATCH (pe)-[:RELATED_TO]->(d:Disease)
-RETURN pe.name, pe.abstract, pe.startDate, pe.deathToll,
-       pe.location, d.name as relatedDisease
-ORDER BY pe.startDate
-        """.strip()
     }
 ]
 

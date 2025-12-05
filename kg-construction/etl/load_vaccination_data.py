@@ -213,9 +213,7 @@ class VaccinationDataLoader:
             MERGE (v:VaccinationRecord {id: record.id})
             ON CREATE SET
                 v.year = record.year,
-                v.vaccineName = record.vaccine_name,
-                v.coveragePercent = record.coverage,
-                v.vaccineType = record.vaccine_type
+                v.coveragePercent = record.coverage
             ON MATCH SET
                 v.coveragePercent = record.coverage
 
@@ -240,8 +238,6 @@ class VaccinationDataLoader:
                         'country_code': row['Code'],
                         'disease_id': disease_id,
                         'year': int(row['Year']),
-                        'vaccine_name': vaccine_name,
-                        'vaccine_type': col_name,
                         'coverage': float(row[col_name])
                     })
 
