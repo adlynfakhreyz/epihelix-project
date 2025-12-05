@@ -1,31 +1,33 @@
 # Core FastAPI dependencies
-fastapi>=0.95.0
-uvicorn[standard]>=0.22.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
 
 # HTTP client
-httpx>=0.24.0
+httpx==0.28.1
 
 # Knowledge Graph clients
-neo4j>=5.0.0  # Neo4j Python driver
+neo4j==5.27.0
 
-# Machine Learning / AI (Self-Hosted via HuggingFace or Kaggle)
-numpy>=1.24.0  # Required for embedder service
-huggingface_hub>=0.20.0  # For HuggingFace Inference API
+# Machine Learning / AI
+numpy==1.26.4
+huggingface_hub==0.26.5
 
-# LangChain for chatbot (integrates with custom Kaggle LLM)
-langchain>=0.1.0
-langchain-core>=0.1.0
-
-# Note: Using HuggingFace Inference API or Kaggle GPU (no local model dependencies needed)
-# For local deployment: uncomment sentence-transformers>=2.2.0
-
-# Development
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-ruff>=0.1.0
+# LangChain for chatbot
+langchain==0.3.13
+langchain-core==0.3.28
+langchain-community==0.3.13
 
 # Groq LLM client
-groq>=0.4.0
+groq==0.13.0
+
+# Additional utilities
+python-dotenv==1.0.1
+python-multipart==0.0.20
+
+# Development (optional)
+pytest==8.3.4
+pytest-asyncio==0.24.0
+black==24.10.0
+ruff==0.8.4
